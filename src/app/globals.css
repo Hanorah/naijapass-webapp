@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+:root {
+  --navy: #0a192f;
+  --navy-deep: #06101f;
+  --navy-muted: #1b2a41;
+  --orange: #ff6b35;
+  --orange-hover: #e85a28;
+  --orange-soft: #fff0ea;
+  --mist: #f0f4f8;
+  --slate: #64748b;
+  --ink: #0f172a;
+  --surface: #ffffff;
+  --background: #fafbfc;
+  --foreground: #0a192f;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-navy: var(--navy);
+  --color-navy-deep: var(--navy-deep);
+  --color-navy-muted: var(--navy-muted);
+  --color-orange: var(--orange);
+  --color-orange-hover: var(--orange-hover);
+  --color-orange-soft: var(--orange-soft);
+  --color-mist: var(--mist);
+  --color-slate: var(--slate);
+  --color-ink: var(--ink);
+  --color-surface: var(--surface);
+  --font-sans: var(--font-manrope);
+  --font-display: var(--font-sora);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-manrope), system-ui, sans-serif;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--orange) 28%, transparent);
+  color: var(--navy);
+}
+
+.section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--orange);
+}
+
+.section-label::before {
+  content: "";
+  width: 0.55rem;
+  height: 0.55rem;
+  background: var(--orange);
+  flex-shrink: 0;
+}
+
+.hero-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
+}

@@ -12,7 +12,7 @@ const institutions = [
 
 export default function TrustedBy() {
   return (
-    <section id="trusted" className="bg-mist py-14 md:py-16">
+    <section id="trusted" className="bg-white py-14 md:py-16">
       <div className="mx-auto max-w-7xl px-5 text-center md:px-8">
         <motion.p
           initial={{ opacity: 0 }}

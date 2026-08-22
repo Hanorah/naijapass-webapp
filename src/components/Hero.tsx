@@ -1,73 +1,101 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { useRef } from "react";
+import { ArrowUpRight } from "lucide-react";
+import NigeriaMap from "@/components/NigeriaMap";
+import { gsap, useGSAP } from "@/lib/gsap";
 
 export default function Hero() {
+  const root = useRef<HTMLElement>(null);
+
+  useGSAP(
+    () => {
+      const mm = gsap.matchMedia();
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        const tl = gsap.timeline({
+          defaults: { ease: "power3.out", duration: 0.85 },
+        });
+        tl.from(".hero-kicker", { y: 18, autoAlpha: 0 })
+          .from(".hero-title", { y: 28, autoAlpha: 0 }, "-=0.55")
+          .from(".hero-sub", { y: 20, autoAlpha: 0 }, "-=0.55")
+          .from(".hero-cta", { y: 14, autoAlpha: 0 }, "-=0.5")
+          .from(".hero-meta", { y: 12, autoAlpha: 0 }, "-=0.45")
+          .from(".hero-visual", { y: 36, autoAlpha: 0, duration: 1.05 }, "-=0.85")
+          .from(".hero-chip", { y: 14, autoAlpha: 0, stagger: 0.1 }, "-=0.55");
+      });
+      return () => mm.revert();
+    },
+    { scope: root },
+  );
+
   return (
     <section
+      ref={root}
       id="home"
-      className="relative isolate min-h-[88vh] overflow-hidden text-white"
+      className="dark-canvas relative -mt-20 overflow-hidden"
     >
-      <Image
-        src="https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&w=2400&q=80"
-        alt="Aerial cityscape at dusk"
-        fill
-        priority
-        className="object-cover object-center"
-        sizes="100vw"
-      />
-      <div className="absolute inset-0 bg-gradient-to-br from-navy-deep/92 via-navy/78 to-navy/55" />
-      <div className="absolute inset-0 hero-grid opacity-60" aria-hidden />
+      <div className="aurora -left-24 top-[-8%] h-[55vw] w-[55vw] max-h-[640px] max-w-[640px] bg-forest/25" />
+      <div className="aurora right-[-12%] top-[18%] h-[42vw] w-[42vw] max-h-[480px] max-w-[480px] bg-emerald-400/10" />
+      <div className="aurora bottom-[-20%] left-[30%] h-72 w-72 bg-gold/10" />
+      <div className="hero-grid pointer-events-none absolute inset-0" />
 
-      <div
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[min(70vw,520px)] w-[min(70vw,520px)] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10"
-        aria-hidden
-      >
-        <div className="absolute inset-[12%] rounded-full border border-white/8" />
-        <div className="absolute inset-[28%] rounded-full border border-orange/20" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="select-none text-center font-display text-[clamp(1.1rem,3.5vw,2rem)] font-bold uppercase tracking-[0.35em] text-white/8">
-            Unified
-            <br />
-            Brokers
-          </span>
-        </div>
-      </div>
-
-      <div className="relative mx-auto flex min-h-[88vh] max-w-7xl flex-col justify-center px-5 py-24 md:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 28 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          className="max-w-2xl"
-        >
-          <p className="section-label mb-5 text-orange drop-shadow-sm">
-            NaijaPass Portal
+      <div className="relative mx-auto grid min-h-[100svh] max-w-7xl items-center gap-12 px-5 pb-20 pt-32 md:px-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-16 lg:pb-24 lg:pt-28">
+        <div className="max-w-xl">
+          <p className="hero-kicker eyebrow mb-7 text-forest">
+            National civic infrastructure
           </p>
-          <h1 className="font-display text-[clamp(2.35rem,5.5vw,4.25rem)] font-bold leading-[1.08] tracking-tight text-white">
-            Unified Gateway to Nigeria&apos;s 36 States
+          <h1 className="hero-title font-serif text-[clamp(2.7rem,6.4vw,5.4rem)] leading-[0.96] tracking-[-0.03em] text-white">
+            The operating system for{" "}
+            <em className="italic text-forest">public Nigeria</em>.
           </h1>
-          <p className="mt-6 max-w-xl text-base leading-relaxed text-white/80 md:text-lg">
-            Connect your business with verified government projects, procurement
-            pipelines, and state-level intelligence — all in one trusted portal.
+          <p className="hero-sub mt-7 max-w-md text-[16px] leading-relaxed text-white/62 md:text-[17px] md:leading-[1.75]">
+            Intelligence, verified firms, and open procurement across 36 states
+            and 774 LGAs — built for businesses that bid, and governments that
+            publish.
           </p>
-          <div className="mt-9 flex flex-wrap gap-3">
-            <Link
-              href="#projects"
-              className="inline-flex items-center justify-center rounded-lg bg-orange px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-orange/25 transition hover:bg-orange-hover hover:shadow-orange/35"
-            >
-              Explore Opportunities
+          <div className="hero-cta mt-10 flex flex-wrap items-center gap-3">
+            <Link href="/signin" className="btn btn-primary">
+              Enter the portal
+              <ArrowUpRight className="h-4 w-4" strokeWidth={2.1} />
             </Link>
-            <Link
-              href="#about"
-              className="inline-flex items-center justify-center rounded-lg border border-white/40 bg-white/5 px-6 py-3.5 text-sm font-semibold text-white backdrop-blur-md transition hover:border-white/70 hover:bg-white/12"
-            >
-              Learn More
+            <Link href="/projects" className="btn btn-ghost-dark">
+              Browse projects
             </Link>
           </div>
-        </motion.div>
+          <div className="hero-meta mt-12 flex flex-wrap gap-x-8 gap-y-4 border-t border-white/10 pt-6 text-sm text-white/50">
+            <p>
+              <span className="block font-serif text-2xl text-white">₦48.2B</span>
+              awarded this week
+            </p>
+            <p>
+              <span className="block font-serif text-2xl text-white">128</span>
+              tenders closing
+            </p>
+            <p>
+              <span className="block font-serif text-2xl text-white">12k+</span>
+              verified firms
+            </p>
+          </div>
+        </div>
+
+        <div className="hero-visual relative">
+          <div className="hero-chip glass-chip absolute -left-2 top-8 z-20 hidden px-4 py-3 sm:block">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+              Live procurement
+            </p>
+            <p className="mt-1 font-serif text-2xl text-white">₦48.2B</p>
+            <p className="text-xs text-white/50">awarded this week</p>
+          </div>
+          <div className="hero-chip glass-chip absolute -right-1 bottom-12 z-20 hidden px-4 py-3 lg:block">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+              Coverage
+            </p>
+            <p className="mt-1 font-serif text-2xl text-white">36 states</p>
+            <p className="text-xs text-white/50">774 LGAs indexed</p>
+          </div>
+          <NigeriaMap />
+        </div>
       </div>
     </section>
   );

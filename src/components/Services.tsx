@@ -51,7 +51,11 @@ const fadeUp = {
   show: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: 0.08 * i, duration: 0.5, ease: [0.22, 1, 0.36, 1] },
+    transition: {
+      delay: 0.08 * i,
+      duration: 0.5,
+      ease: [0.22, 1, 0.36, 1] as const,
+    },
   }),
 };
 
@@ -72,12 +76,12 @@ export default function Services() {
             What we do
           </h2>
           <p className="mt-4 text-base leading-relaxed text-slate md:text-[17px]">
-            From market intelligence to award tracking, Edo Bid equips businesses
+            From market intelligence to award tracking, NaijaPass equips businesses
             to compete fairly and win government contracts with confidence.
           </p>
           <Link
-            href="#projects"
-            className="mt-8 inline-flex items-center justify-center rounded-lg bg-orange px-5 py-3 text-sm font-semibold text-white transition hover:bg-orange-hover"
+            href="/about"
+            className="mt-8 inline-flex items-center justify-center rounded-lg bg-forest px-5 py-3 text-sm font-semibold text-white transition hover:bg-forest-hover"
           >
             View All Services
           </Link>
@@ -94,7 +98,7 @@ export default function Services() {
                 initial="hidden"
                 whileInView="show"
                 viewport={{ once: true, margin: "-40px" }}
-                className="group rounded-2xl border border-navy/6 bg-mist/60 p-6 transition duration-300 hover:-translate-y-1 hover:border-orange/20 hover:bg-white hover:shadow-xl hover:shadow-navy/5"
+                className="group rounded-2xl border border-navy/6 bg-mist/80 p-6 transition duration-300 hover:-translate-y-1 hover:border-forest/20 hover:bg-white hover:shadow-xl hover:shadow-navy/5"
               >
                 <div
                   className={`mb-5 inline-flex h-11 w-11 items-center justify-center rounded-xl ${service.tint}`}
@@ -108,8 +112,8 @@ export default function Services() {
                   {service.description}
                 </p>
                 <Link
-                  href="#projects"
-                  className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-orange transition group-hover:gap-2"
+                  href="/projects"
+                  className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-forest transition group-hover:gap-2"
                 >
                   Learn more
                   <span aria-hidden>→</span>

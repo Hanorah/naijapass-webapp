@@ -1,21 +1,25 @@
-import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
-import Services from "@/components/Services";
-import Projects from "@/components/Projects";
-import TrustedBy from "@/components/TrustedBy";
-import Footer from "@/components/Footer";
+import WordTicker from "@/components/home/WordTicker";
+import Craft from "@/components/home/Craft";
+import SplitAudience from "@/components/home/SplitAudience";
+import FeaturedWork from "@/components/home/FeaturedWork";
+import StatsBand from "@/components/home/StatsBand";
+import Testimonials from "@/components/home/Testimonials";
+import HowItWorks from "@/components/home/HowItWorks";
+import FinalCta from "@/components/home/FinalCta";
 
 export default function Home() {
   return (
     <>
-      <Navbar />
-      <main className="flex-1">
-        <Hero />
-        <Services />
-        <Projects />
-        <TrustedBy />
-      </main>
-      <Footer />
+      <Hero />
+      <WordTicker />
+      <Craft />
+      <SplitAudience />
+      <FeaturedWork />
+      <StatsBand />
+      <Testimonials />
+      <HowItWorks />
+      <FinalCta />
     </>
   );
 }

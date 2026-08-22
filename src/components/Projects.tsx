@@ -42,7 +42,7 @@ const projects = [
 
 export default function Projects() {
   return (
-    <section id="projects" className="bg-background py-20 md:py-28">
+    <section id="projects" className="bg-white py-20 md:py-28">
       <div className="mx-auto max-w-7xl px-5 md:px-8">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -76,7 +76,7 @@ export default function Projects() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-navy-deep/90 via-navy/35 to-transparent transition duration-500 group-hover:from-navy-deep/95" />
               <div className="absolute inset-x-0 bottom-0 p-5 md:p-6">
-                <span className="inline-block rounded-md bg-orange px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
+                <span className="inline-block rounded-md bg-forest px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
                   {project.tag}
                 </span>
                 <h3 className="mt-3 font-display text-lg font-bold leading-snug text-white md:text-xl">
@@ -94,7 +94,7 @@ export default function Projects() {
 
         <div className="mt-10 flex justify-center">
           <Link
-            href="#trusted"
+            href="/projects"
             className="inline-flex items-center justify-center rounded-lg border border-navy/25 bg-transparent px-6 py-3 text-sm font-semibold text-navy transition hover:border-navy hover:bg-navy hover:text-white"
           >
             View Complete Portfolio

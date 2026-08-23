@@ -15,7 +15,6 @@ import {
   Menu,
   Search,
   Settings,
-  Shield,
   ShoppingBag,
   Siren,
   Store,
@@ -23,7 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { nigerianStates } from "@/data/states";
-import { BrandGlyph } from "@/components/NaijaPassMark";
+import NaijaPassMark from "@/components/NaijaPassMark";
 import CivicChat from "@/components/dashboard/CivicChat";
 import { useDashboardSearch } from "@/components/dashboard/DashboardSearchContext";
 import { useSession } from "@/components/SessionProvider";
@@ -70,12 +69,6 @@ const primaryNav: {
     label: "Emergency",
     icon: Siren,
     roles: ["individual", "business", "govt", "admin"],
-  },
-  {
-    href: "/dashboard/admin",
-    label: "Admin",
-    icon: Shield,
-    roles: ["admin"],
   },
 ];
 
@@ -142,6 +135,14 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!ready) return;
+    if (user?.role === "admin") {
+      router.replace("/admin");
+      return;
+    }
+    if (user?.role === "govt") {
+      router.replace("/govt");
+      return;
+    }
     if (pending && !user?.verified) {
       router.replace("/kyc");
       return;
@@ -215,17 +216,10 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <Link href="/dashboard" className="flex shrink-0 items-center gap-2.5 px-5 py-4">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/8 text-forest">
-            <BrandGlyph className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="font-display text-[15px] font-semibold leading-tight">
-              NaijaPass
-            </p>
-            <p className="text-[11px] text-white/40">Governance portal</p>
-          </div>
-        </Link>
+        <div className="shrink-0 px-4 py-4">
+          <NaijaPassMark size="sm" />
+          <p className="mt-1.5 px-1 text-[11px] text-white/40">Governance portal</p>
+        </div>
 
         <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-2">
           <p className="px-2 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/30">
@@ -406,8 +400,8 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
                   </Link>
                   <button
                     type="button"
-                    onClick={() => {
-                      signOut();
+                    onClick={async () => {
+                      await signOut();
                       router.push("/signin");
                     }}
                     className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-600 hover:bg-mist"

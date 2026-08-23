@@ -3,43 +3,43 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, Bot, FolderCheck, Gavel, Map } from "lucide-react";
+import { ArrowUpRight, FolderCheck, Gavel, Map, MessageCircle } from "lucide-react";
 import { gsap, useGSAP } from "@/lib/gsap";
 
 const crafts = [
   {
     id: "01",
-    title: "State Intelligence",
-    body: "Live insights across Nigeria’s 36 states — budgets, priorities, and upcoming pipelines before they hit the papers.",
-    tags: ["Budgets", "Pipelines", "LGA heatmaps"],
+    title: "State Hub",
+    body: "Who governs your state, which MDA handles permits, emergency numbers, and the local laws that apply — for all 36 states and FCT.",
+    tags: ["Governors", "MDAs", "Emergency"],
     icon: Map,
     image:
       "https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=1400&q=80",
   },
   {
     id: "02",
-    title: "Verified Directory",
-    body: "Discover vetted contractors, consultants, and suppliers ready for public-sector work — with reviews, KYC, and track record.",
-    tags: ["KYC", "Reviews", "Capacity"],
+    title: "Business directory",
+    body: "Search contractors and suppliers who have uploaded CAC or NIN. Filter by state and trade before you call anyone.",
+    tags: ["KYC", "Contractors", "Suppliers"],
     icon: FolderCheck,
     image:
       "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1400&q=80",
   },
   {
     id: "03",
-    title: "Procurement Hub",
-    body: "Track RFPs, RFQs, and awards with clear status, documents, and closing dates. Export, share, bid.",
-    tags: ["RFPs", "Awards", "Documents"],
+    title: "Procurement",
+    body: "Federal and state tenders with values, deadlines, and documents. Track awards so you know who won and for how much.",
+    tags: ["Tenders", "Deadlines", "Awards"],
     icon: Gavel,
     image:
       "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1400&q=80",
   },
   {
     id: "04",
-    title: "AI Civic Desk",
-    body: "Ask natural-language questions about tenders, eligibility, and timelines. The desk reads the country so you don’t have to.",
-    tags: ["Chat", "Eligibility", "Alerts"],
-    icon: Bot,
+    title: "Help desk",
+    body: "Ask where to get a permit, which number to dial, or which tenders are open in your state. Answers use the same data as the portal.",
+    tags: ["Permits", "Contacts", "Tenders"],
+    icon: MessageCircle,
     image:
       "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=1400&q=80",
   },
@@ -53,33 +53,42 @@ export default function Craft() {
 
   useGSAP(
     () => {
-      gsap.from(".craft-head", {
-        y: 28,
-        autoAlpha: 0,
-        duration: 0.8,
-        ease: "power3.out",
-        scrollTrigger: { trigger: root.current, start: "top 78%" },
-      });
+      gsap.fromTo(
+        ".craft-head",
+        { y: 28, autoAlpha: 0 },
+        {
+          y: 0,
+          autoAlpha: 1,
+          duration: 0.8,
+          ease: "power3.out",
+          immediateRender: false,
+          scrollTrigger: {
+            trigger: root.current,
+            start: "top 78%",
+            once: true,
+          },
+        },
+      );
     },
     { scope: root },
   );
 
   return (
-    <section ref={root} id="services" className="bg-white py-24 md:py-32">
+    <section ref={root} id="services" className="max-w-[100vw] overflow-x-hidden bg-white py-24 md:py-32">
       <div className="mx-auto max-w-7xl px-5 md:px-8">
         <div className="craft-head flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div>
-            <p className="eyebrow">What we bring</p>
+            <p className="eyebrow">Inside the portal</p>
             <h2 className="mt-5 max-w-xl font-serif text-[clamp(2.2rem,4.6vw,3.75rem)] leading-[1.08] tracking-[-0.03em] text-navy">
-              The craft behind every{" "}
-              <em className="italic text-forest">winning bid</em>.
+              What you can actually{" "}
+              <em className="italic text-forest">do here</em>
             </h2>
           </div>
           <Link
-            href="/projects"
+            href="/signin"
             className="inline-flex items-center gap-2 text-sm font-semibold text-navy/70 transition hover:text-navy"
           >
-            Explore the platform
+            Open the portal
             <ArrowUpRight className="h-4 w-4" />
           </Link>
         </div>
@@ -98,7 +107,7 @@ export default function Craft() {
                       : "text-navy/35 hover:text-navy/70"
                   }`}
                 >
-                  <span className="font-display text-xs font-semibold tracking-[0.16em]">
+                  <span className="text-xs font-semibold tracking-[0.16em]">
                     {item.id}
                   </span>
                   <span className="font-serif text-[1.65rem] tracking-tight md:text-[1.85rem]">
@@ -121,7 +130,7 @@ export default function Craft() {
               <div className="absolute inset-0 bg-gradient-to-t from-navy-deep/55 to-transparent" />
               <span className="absolute bottom-4 left-4 inline-flex items-center gap-2 rounded-full bg-white/92 px-3 py-1.5 text-xs font-semibold text-navy backdrop-blur">
                 <Icon className="h-3.5 w-3.5 text-forest" />
-                {craft.id} · live
+                {craft.title}
               </span>
             </div>
             <div className="p-7 md:p-8">
@@ -135,7 +144,7 @@ export default function Craft() {
                 {craft.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-navy/70 ring-1 ring-navy/6"
+                    className="rounded-full bg-[#f4f6f8] px-3 py-1 text-xs font-semibold text-navy/70"
                   >
                     {tag}
                   </span>

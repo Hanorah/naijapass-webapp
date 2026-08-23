@@ -6,18 +6,18 @@ import { gsap, useGSAP } from "@/lib/gsap";
 const steps = [
   {
     n: "01",
-    title: "Search intelligence",
-    body: "Filter by state, sector, and budget. Live insights across Nigeria’s 36 states — pipelines, priorities, and upcoming tenders.",
+    title: "Choose your state",
+    body: "We try to detect it from your location. You can also pick from the list. Tenders, contacts, and laws then filter to that state.",
   },
   {
     n: "02",
-    title: "Verify and prepare",
-    body: "Check the verified directory, run KYC, and ask the AI chatbot about eligibility and submission timelines before you bid.",
+    title: "Verify with NIN or CAC",
+    body: "Individuals upload NIN. Businesses upload CAC and tax docs. Once verified, you can list in the directory and follow tenders.",
   },
   {
     n: "03",
-    title: "Track procurement",
-    body: "Follow RFPs, RFQs, and awards with documents, status updates, and field reports — one source of truth for firms and citizens.",
+    title: "Use the portal",
+    body: "Read open bids, download documents, call MDAs, or ask the help desk. Same login for directory, procurement, and state hub.",
   },
 ];
 
@@ -26,14 +26,23 @@ export default function HowItWorks() {
 
   useGSAP(
     () => {
-      gsap.from(".step-card", {
-        y: 28,
-        autoAlpha: 0,
-        duration: 0.7,
-        stagger: 0.1,
-        ease: "power3.out",
-        scrollTrigger: { trigger: root.current, start: "top 80%" },
-      });
+      gsap.fromTo(
+        ".step-card",
+        { y: 28, autoAlpha: 0 },
+        {
+          y: 0,
+          autoAlpha: 1,
+          duration: 0.7,
+          stagger: 0.1,
+          ease: "power3.out",
+          immediateRender: false,
+          scrollTrigger: {
+            trigger: root.current,
+            start: "top 80%",
+            once: true,
+          },
+        },
+      );
     },
     { scope: root },
   );
@@ -41,9 +50,9 @@ export default function HowItWorks() {
   return (
     <section ref={root} className="bg-white pb-8 pt-8 md:pb-12 md:pt-4">
       <div className="mx-auto max-w-7xl px-5 md:px-8">
-        <p className="eyebrow">How it works</p>
+        <p className="eyebrow">Getting started</p>
         <h2 className="mt-5 max-w-xl font-serif text-[clamp(2.2rem,4.6vw,3.6rem)] leading-[1.08] tracking-[-0.03em] text-navy">
-          From intelligence to award.
+          Sign up. Pick a state. Get to work.
         </h2>
         <div className="mt-14 grid gap-px overflow-hidden rounded-[28px] bg-navy/8 md:grid-cols-3">
           {steps.map((step) => (

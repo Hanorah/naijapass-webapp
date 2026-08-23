@@ -1,42 +1,50 @@
+import Image from "next/image";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
+/** Compact mark for tight spots (sidebar icon, etc.). */
 export function BrandGlyph({ className = "h-6 w-6" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 32 32" className={className} aria-hidden>
-      <circle cx="16" cy="16" r="4" fill="currentColor" />
-      <circle cx="16" cy="5" r="2.2" fill="currentColor" />
-      <circle cx="16" cy="27" r="2.2" fill="currentColor" />
-      <circle cx="5" cy="16" r="2.2" fill="currentColor" />
-      <circle cx="27" cy="16" r="2.2" fill="currentColor" />
-      <circle cx="8.2" cy="8.2" r="1.8" fill="currentColor" />
-      <circle cx="23.8" cy="8.2" r="1.8" fill="currentColor" />
-      <circle cx="8.2" cy="23.8" r="1.8" fill="currentColor" />
-      <circle cx="23.8" cy="23.8" r="1.8" fill="currentColor" />
-    </svg>
+    <Image
+      src="/naijapass-logoo.png"
+      alt=""
+      width={128}
+      height={64}
+      className={cn("h-full w-auto object-contain", className)}
+      aria-hidden
+    />
   );
 }
 
+type MarkProps = {
+  className?: string;
+  size?: "sm" | "md" | "lg";
+};
+
+const sizeClass = {
+  sm: "h-10",
+  md: "h-12",
+  lg: "h-14 md:h-16",
+};
+
 export default function NaijaPassMark({
-  light = false,
-}: {
-  light?: boolean;
-}) {
+  className,
+  size = "md",
+}: MarkProps) {
   return (
-    <Link href="/" className="group inline-flex items-center gap-2.5">
-      <span
-        className={`relative flex h-9 w-9 items-center justify-center rounded-full ${
-          light ? "bg-white/10 text-forest" : "bg-forest/12 text-forest"
-        }`}
-      >
-        <BrandGlyph className="relative h-5 w-5" />
-      </span>
-      <span
-        className={`font-display text-[17px] font-semibold tracking-tight ${
-          light ? "text-white" : "text-navy"
-        }`}
-      >
-        NaijaPass
-      </span>
+    <Link
+      href="/"
+      className={cn("group inline-flex items-center", className)}
+      aria-label="NaijaPass home"
+    >
+      <Image
+        src="/naijapass-logoo.png"
+        alt="NaijaPass"
+        width={320}
+        height={120}
+        priority
+        className={cn("w-auto object-contain", sizeClass[size])}
+      />
     </Link>
   );
 }

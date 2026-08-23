@@ -3,8 +3,29 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import toast from "react-hot-toast";
-import { ArrowRight } from "lucide-react";
-import { BrandGlyph } from "@/components/NaijaPassMark";
+import { ArrowUpRight } from "lucide-react";
+import NaijaPassMark from "@/components/NaijaPassMark";
+
+const explore = [
+  { href: "/projects", label: "Projects" },
+  { href: "/procurement", label: "Procurement" },
+  { href: "/dashboard/hub", label: "State Hub" },
+  { href: "/visualization", label: "Visualization" },
+];
+
+const company = [
+  { href: "/about", label: "About" },
+  { href: "/signup", label: "Register business" },
+  { href: "/signin", label: "Sign in" },
+  { href: "/kyc", label: "Verify account" },
+  { href: "/contact", label: "Contact" },
+];
+
+const legal = [
+  { href: "/privacy", label: "Privacy" },
+  { href: "/terms", label: "Terms" },
+  { href: "/disclaimer", label: "Disclaimer" },
+];
 
 const socials = [
   {
@@ -15,7 +36,7 @@ const socials = [
   {
     label: "LinkedIn",
     href: "/contact",
-    path: "M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z",
+    path: "M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.064 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z",
   },
   {
     label: "YouTube",
@@ -31,49 +52,66 @@ export default function Footer() {
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast.error("Please enter a valid email address.");
+      toast.error("Enter a valid email address.");
       return;
     }
     setLoading(true);
     window.setTimeout(() => {
-      toast.success("You're subscribed — welcome aboard.");
+      toast.success("You're on the list — tender notes coming.");
       setEmail("");
       setLoading(false);
     }, 500);
   };
 
   return (
-    <footer className="dark-canvas relative overflow-hidden text-white">
-      <div className="aurora -right-20 top-0 h-80 w-80 bg-forest/15" />
-      <div className="relative mx-auto max-w-7xl px-5 py-20 md:px-8 md:py-24">
-        <div className="grid gap-14 lg:grid-cols-[1.35fr_0.7fr_0.7fr_1.1fr] lg:gap-10">
-          <div className="max-w-sm">
-            <Link href="/" className="inline-flex items-center gap-2.5">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/8 text-forest">
-                <BrandGlyph className="h-5 w-5" />
-              </span>
-              <span className="font-display text-lg font-semibold">NaijaPass</span>
-            </Link>
-            <p className="mt-6 font-serif text-2xl leading-snug tracking-tight text-white/90 md:text-[1.7rem]">
-              Transparent pathways between business and government.
+    <footer className="relative w-full max-w-[100vw] overflow-hidden bg-[#05080b] text-white">
+      {/* Top CTA band */}
+      <div className="relative border-b border-white/8">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-80"
+          style={{
+            background:
+              "radial-gradient(ellipse 60% 80% at 15% 50%, rgba(15,157,108,0.22), transparent 55%), radial-gradient(ellipse 40% 60% at 90% 20%, rgba(184,149,106,0.12), transparent 50%)",
+          }}
+        />
+        <div className="relative mx-auto flex max-w-7xl flex-col gap-8 px-5 py-16 md:flex-row md:items-end md:justify-between md:px-8 md:py-20">
+          <div className="max-w-2xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-forest">
+              NaijaPass
             </p>
-            <p className="mt-4 text-sm leading-relaxed text-white/45">
-              Civic intelligence, verified directories, and open contracting
-              across Nigeria’s 36 states.
+            <h2 className="mt-4 font-serif text-[clamp(2.4rem,5vw,4.2rem)] leading-[1.02] tracking-[-0.03em] text-white">
+              Your state&apos;s tenders,{" "}
+              <em className="italic text-forest">in one place.</em>
+            </h2>
+          </div>
+          <Link
+            href="/signup"
+            className="btn btn-primary shrink-0 self-start md:self-auto"
+          >
+            Create free account
+            <ArrowUpRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+
+      {/* Main grid */}
+      <div className="relative mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-20">
+        <div className="grid gap-12 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr] lg:gap-10">
+          <div>
+            <NaijaPassMark size="md" />
+            <p className="mt-5 max-w-xs text-[15px] leading-relaxed text-white/50">
+              Open tenders, state hubs, MDA contacts, and a verified directory —
+              for businesses that bid and agencies that publish.
             </p>
-            <div className="mt-7 flex gap-2.5">
+            <div className="mt-8 flex gap-2">
               {socials.map(({ label, href, path }) => (
                 <a
                   key={label}
                   href={href}
                   aria-label={label}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/55 transition hover:border-forest hover:bg-forest hover:text-white"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/50 transition hover:border-forest/50 hover:bg-forest hover:text-white"
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-3.5 w-3.5 fill-current"
-                    aria-hidden
-                  >
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current" aria-hidden>
                     <path d={path} />
                   </svg>
                 </a>
@@ -85,13 +123,8 @@ export default function Footer() {
             <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/35">
               Explore
             </h3>
-            <ul className="mt-5 space-y-3.5 text-sm text-white/65">
-              {[
-                { href: "/projects", label: "Projects" },
-                { href: "/procurement", label: "Procurement" },
-                { href: "/visualization", label: "Visualization" },
-                { href: "/feedback", label: "Feedback" },
-              ].map((item) => (
+            <ul className="mt-5 space-y-3 text-[15px] text-white/65">
+              {explore.map((item) => (
                 <li key={item.label}>
                   <Link href={item.href} className="transition hover:text-white">
                     {item.label}
@@ -105,13 +138,8 @@ export default function Footer() {
             <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/35">
               Company
             </h3>
-            <ul className="mt-5 space-y-3.5 text-sm text-white/65">
-              {[
-                { href: "/about", label: "About" },
-                { href: "/signup", label: "Register business" },
-                { href: "/signin", label: "Sign in" },
-                { href: "/kyc", label: "Verify account" },
-              ].map((item) => (
+            <ul className="mt-5 space-y-3 text-[15px] text-white/65">
+              {company.map((item) => (
                 <li key={item.label}>
                   <Link href={item.href} className="transition hover:text-white">
                     {item.label}
@@ -123,52 +151,54 @@ export default function Footer() {
 
           <div>
             <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/35">
-              Briefing
+              Tender briefing
             </h3>
-            <p className="mt-5 text-sm leading-relaxed text-white/50">
-              Weekly tender alerts and market notes. No noise.
+            <p className="mt-5 text-[15px] leading-relaxed text-white/50">
+              Weekly open bids and award notes for your state. No spam.
             </p>
-            <form onSubmit={onSubmit} className="mt-5 flex gap-2">
+            <form onSubmit={onSubmit} className="mt-5">
               <label htmlFor="newsletter-email" className="sr-only">
                 Email address
               </label>
-              <input
-                id="newsletter-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                className="min-w-0 flex-1 rounded-full border-0 bg-white/6 px-4 py-2.5 text-sm text-white outline-none ring-1 ring-white/12 placeholder:text-white/30 focus:ring-forest"
-              />
-              <button
-                type="submit"
-                disabled={loading}
-                aria-label="Subscribe"
-                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-forest text-white transition hover:bg-forest-hover disabled:opacity-60"
-              >
-                <ArrowRight className="h-4 w-4" />
-              </button>
+              <div className="flex overflow-hidden rounded-2xl bg-white/[0.06] ring-1 ring-white/12 focus-within:ring-forest/50">
+                <input
+                  id="newsletter-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  className="min-w-0 flex-1 border-0 bg-transparent px-4 py-3.5 text-sm text-white outline-none placeholder:text-white/30"
+                />
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="shrink-0 bg-forest px-4 text-sm font-semibold text-white transition hover:bg-forest-hover disabled:opacity-60"
+                >
+                  Join
+                </button>
+              </div>
             </form>
           </div>
         </div>
-      </div>
 
-      <div className="relative border-t border-white/8">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-5 text-xs text-white/35 sm:flex-row sm:items-center sm:justify-between md:px-8">
-          <p>© {new Date().getFullYear()} NaijaPass. All rights reserved.</p>
+        {/* Giant watermark brand */}
+        <div
+          className="pointer-events-none mt-16 select-none overflow-hidden border-t border-white/8 pt-10 md:mt-20 md:pt-14"
+          aria-hidden
+        >
+          <p className="truncate font-display text-[clamp(3rem,12vw,9rem)] font-semibold leading-none tracking-[-0.06em] text-white/[0.04]">
+            NAIJAPASS
+          </p>
+        </div>
+
+        <div className="mt-6 flex flex-col gap-4 text-xs text-white/35 sm:flex-row sm:items-center sm:justify-between">
+          <p>© {new Date().getFullYear()} NaijaPass. Built for Nigeria.</p>
           <div className="flex flex-wrap gap-5">
-            <Link href="/disclaimer" className="hover:text-white">
-              Disclaimer
-            </Link>
-            <Link href="/terms" className="hover:text-white">
-              Terms
-            </Link>
-            <Link href="/privacy" className="hover:text-white">
-              Privacy
-            </Link>
-            <Link href="/contact" className="hover:text-white">
-              Contact
-            </Link>
+            {legal.map((item) => (
+              <Link key={item.href} href={item.href} className="hover:text-white">
+                {item.label}
+              </Link>
+            ))}
           </div>
         </div>
       </div>

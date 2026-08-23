@@ -21,6 +21,7 @@ const DashboardSearchContext = createContext<{
   setSelectedState: (v: string) => void;
   locating: boolean;
   locationSource: "user" | "geo" | "session" | "default";
+  coords: { lat: number; lng: number } | null;
 }>({
   search: "",
   setSearch: () => {},
@@ -28,6 +29,7 @@ const DashboardSearchContext = createContext<{
   setSelectedState: () => {},
   locating: false,
   locationSource: "default",
+  coords: null,
 });
 
 export function DashboardSearchProvider({ children }: { children: ReactNode }) {
@@ -38,6 +40,7 @@ export function DashboardSearchProvider({ children }: { children: ReactNode }) {
   const [locationSource, setLocationSource] = useState<
     "user" | "geo" | "session" | "default"
   >("default");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [resolved, setResolved] = useState(false);
 
   const setSelectedState = useCallback((v: string) => {
@@ -45,6 +48,7 @@ export function DashboardSearchProvider({ children }: { children: ReactNode }) {
     setLocationSource("user");
     try {
       window.localStorage.setItem(LOCATION_KEY, v);
+      window.dispatchEvent(new CustomEvent("naijapass:state", { detail: v }));
     } catch {
       /* ignore */
     }
@@ -85,6 +89,9 @@ export function DashboardSearchProvider({ children }: { children: ReactNode }) {
       if (result.state) {
         setSelectedStateRaw(result.state);
         setLocationSource("geo");
+        if (result.lat && result.lng) {
+          setCoords({ lat: result.lat, lng: result.lng });
+        }
         try {
           window.localStorage.setItem(LOCATION_KEY, result.state);
         } catch {
@@ -112,8 +119,9 @@ export function DashboardSearchProvider({ children }: { children: ReactNode }) {
       setSelectedState,
       locating,
       locationSource,
+      coords,
     }),
-    [search, selectedState, setSelectedState, locating, locationSource],
+    [search, selectedState, setSelectedState, locating, locationSource, coords],
   );
 
   return (

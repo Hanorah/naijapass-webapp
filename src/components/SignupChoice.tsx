@@ -5,12 +5,19 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArrowRight, Building2, Check, UserRound } from "lucide-react";
 import NaijaPassMark from "@/components/NaijaPassMark";
-import { SIGNUP_ROLE_KEY, isSignupRole, writeJson, type SignupRole } from "@/lib/session";
+import { registerUrl, safeReturnPath } from "@/lib/returnUrl";
+import {
+  SIGNUP_ROLE_KEY,
+  isSignupRole,
+  writeJson,
+  type SignupRole,
+} from "@/lib/session";
 
 export default function SignupChoice() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preset = searchParams.get("role");
+  const next = searchParams.get("next");
   const [role, setRole] = useState<SignupRole>(
     isSignupRole(preset) ? preset : "individual",
   );
@@ -19,9 +26,11 @@ export default function SignupChoice() {
     if (isSignupRole(preset)) setRole(preset);
   }, [preset]);
 
-  const continueToRegister = (next = role) => {
-    writeJson(SIGNUP_ROLE_KEY, next);
-    router.push(`/register?role=${next}`);
+  const returnPath = safeReturnPath(next, "/dashboard");
+
+  const continueToRegister = (nextRole = role) => {
+    writeJson(SIGNUP_ROLE_KEY, nextRole);
+    router.push(registerUrl(nextRole, returnPath));
   };
 
   return (

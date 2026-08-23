@@ -5,7 +5,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 const AUTH_ROUTES = ["/signin", "/signup", "/register", "/kyc"];
-const PORTAL_ROUTES = ["/dashboard"];
+const PORTAL_ROUTES = ["/dashboard", "/admin", "/govt"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -19,7 +19,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Navbar />
-      <main className="flex-1">{children}</main>
+      <main className="min-w-0 flex-1 overflow-x-hidden">{children}</main>
       <Footer />
     </>
   );

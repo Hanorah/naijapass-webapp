@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import KycFlow from "@/components/KycFlow";
 
 export const metadata: Metadata = {
@@ -8,5 +9,15 @@ export const metadata: Metadata = {
 };
 
 export default function KycPage() {
-  return <KycFlow />;
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-full flex-1 items-center justify-center bg-white text-sm text-slate">
+          Preparing verification…
+        </div>
+      }
+    >
+      <KycFlow />
+    </Suspense>
+  );
 }

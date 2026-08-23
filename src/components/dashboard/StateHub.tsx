@@ -14,6 +14,7 @@ import {
   Flame,
   Landmark,
   MapPinned,
+  Megaphone,
   Network,
   Phone,
   Search,
@@ -22,33 +23,35 @@ import {
   Wallet,
 } from "lucide-react";
 import { useDashboardSearch } from "@/components/dashboard/DashboardSearchContext";
+import StateMap from "@/components/StateMap";
+import { getStateProfile } from "@/data/stateProfiles";
+import { useStateContent } from "@/lib/db/stateContent";
 
-const governors: Record<string, { name: string; photo: string; tagline: string }> = {
-  Kano: {
-    name: "Engr. Abba Kabir Yusuf",
+const governors: Record<
+  string,
+  { name: string; photo: string; tagline: string; party: string | null }
+> = {};
+
+function getGovernorInfo(state: string) {
+  if (governors[state]) return governors[state];
+  const profile = getStateProfile(state);
+  if (!profile) {
+    return {
+      name: "Executive Governor",
+      photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80",
+      tagline: "Official civic information for this state.",
+      party: null as string | null,
+    };
+  }
+  return {
+    name: profile.governor,
     photo:
+      profile.governorPhotoUrl ??
       "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80",
-    tagline: "Center of Commerce.",
-  },
-  Lagos: {
-    name: "Babajide Sanwo-Olu",
-    photo:
-      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=120&q=80",
-    tagline: "Centre of Excellence.",
-  },
-  Edo: {
-    name: "Sen. Monday Okpebholo",
-    photo:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80",
-    tagline: "Heartbeat of the Nation.",
-  },
-  Rivers: {
-    name: "Siminalayi Fubara",
-    photo:
-      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=120&q=80",
-    tagline: "Treasure Base of the Nation.",
-  },
-};
+    tagline: profile.slogan,
+    party: profile.party,
+  };
+}
 
 const categoryStyle: Record<string, string> = {
   Finance: "bg-sky-100 text-sky-800",
@@ -57,36 +60,69 @@ const categoryStyle: Record<string, string> = {
 };
 
 export default function StateHub() {
-  const { selectedState } = useDashboardSearch();
+  const { selectedState, setSelectedState } = useDashboardSearch();
   const [query, setQuery] = useState("");
-  const governor = governors[selectedState] ?? {
-    name: "Executive Governor",
-    photo:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80",
-    tagline: "Official civic intelligence for this state.",
-  };
+  const governor = getGovernorInfo(selectedState);
+  const profile = getStateProfile(selectedState);
 
   const code = selectedState.slice(0, 3).toUpperCase();
-  const laws = [
-    {
-      title: `${selectedState} State Revenue Administration Law 2023`,
-      ref: `${code}S/LAW/23-01`,
-      category: "Finance",
-      date: "Oct 12, 2023",
-    },
-    {
-      title: "Executive Order: Traffic Management Agency",
-      ref: `${code}S/EO/24-02`,
-      category: "Transportation",
-      date: "Jan 15, 2024",
-    },
-    {
-      title: `${selectedState} Urban Planning & Development Board Act`,
-      ref: `${code}S/ACT/19-04`,
-      category: "Infrastructure",
-      date: "Mar 04, 2019",
-    },
-  ];
+
+  // Anything the state government has published in its own portal wins over
+  // the bundled profile; the profile is the fallback until they publish.
+  const { items: published } = useStateContent({ state: selectedState });
+
+  const announcements = useMemo(
+    () =>
+      published.filter(
+        (item) =>
+          item.type === "announcement" ||
+          item.type === "notice" ||
+          item.type === "service",
+      ),
+    [published],
+  );
+
+  const laws = useMemo(() => {
+    const live = published
+      .filter((item) => item.type === "law" || item.type === "order")
+      .map((item) => ({
+        title: item.title,
+        ref:
+          item.category
+            ? `${code}S/${item.category.slice(0, 3).toUpperCase()}/${new Date(item.created_at).getFullYear().toString().slice(-2)}`
+            : `${code}S/DOC/${new Date(item.created_at).getFullYear().toString().slice(-2)}`,
+        category: item.category ?? (item.type === "order" ? "Executive Order" : "Law"),
+        date: item.effective_date ?? item.created_at.slice(0, 10),
+        url: item.url ?? undefined,
+      }));
+    if (live.length) return live;
+
+    const seeded = (profile?.laws ?? []).map((law) => ({
+      title: law.title,
+      ref: `${code}S/${law.category.slice(0, 3).toUpperCase()}/${String(law.year).slice(-2)}`,
+      category: law.category,
+      date: `${law.year}`,
+      url: undefined as string | undefined,
+    }));
+    return seeded.length
+      ? seeded
+      : [
+          {
+            title: `${selectedState} State Revenue Administration Law 2023`,
+            ref: `${code}S/LAW/23-01`,
+            category: "Finance",
+            date: "Oct 12, 2023",
+            url: undefined as string | undefined,
+          },
+          {
+            title: "Executive Order: Traffic Management Agency",
+            ref: `${code}S/EO/24-02`,
+            category: "Transportation",
+            date: "Jan 15, 2024",
+            url: undefined as string | undefined,
+          },
+        ];
+  }, [published, profile, code, selectedState]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -96,36 +132,68 @@ export default function StateHub() {
     );
   }, [query, laws]);
 
-  const mdas = [
-    {
-      tag: "Revenue",
-      icon: Wallet,
-      name: `${selectedState} State Internal Revenue Service`,
-      body: "Assessment, collection, and accounting of internally generated revenue across the state.",
-      phone: "0700 547 547",
-    },
-    {
-      tag: "Commerce",
-      icon: Building2,
-      name: `Ministry of Commerce, Industry & Co-operatives`,
-      body: "Trade facilitation, MSME registration support, and industrial park coordination.",
-      phone: "0803 000 1122",
-    },
-    {
-      tag: "Lands",
-      icon: MapPinned,
-      name: `${selectedState} Geographic Information System`,
-      body: "Land titling, cadastral records, and digital property documentation services.",
-      phone: "0809 111 3344",
-    },
-  ];
+  const mdas = useMemo(() => {
+    const live = published
+      .filter((item) => item.type === "mda")
+      .map((item) => ({
+        tag: (item.category ?? item.title).split(" ")[0],
+        icon: Building2,
+        name: item.title,
+        body: item.body ?? item.category ?? "State ministry, department or agency.",
+        phone: item.phone ?? "",
+      }));
+    if (live.length) return live;
 
-  const emergencies = [
-    { label: "Police Command", number: "112", icon: Shield },
-    { label: "Fire Service", number: "0803 208 3000", icon: Flame },
-    { label: "Ambulance (SEMA)", number: "0803 300 3000", icon: Ambulance },
-    { label: "KAROTA (Traffic)", number: "0800 000 0000", icon: CarFront },
-  ];
+    const seeded = (profile?.mdas ?? []).map((m) => ({
+      tag: m.focus.split(" ")[0],
+      icon: Building2,
+      name: m.name,
+      body: m.focus,
+      phone: m.phone,
+    }));
+    return seeded.length
+      ? seeded
+      : [
+          {
+            tag: "Revenue",
+            icon: Wallet,
+            name: `${selectedState} State Internal Revenue Service`,
+            body: "Assessment, collection, and accounting of internally generated revenue.",
+            phone: "0700 547 547",
+          },
+        ];
+  }, [published, profile, selectedState]);
+
+  const emergencies = useMemo(() => {
+    const live = published
+      .filter((item) => item.type === "emergency")
+      .map((item) => ({
+        label: item.title,
+        number: item.phone ?? "112",
+        icon: /fire/i.test(item.title)
+          ? Flame
+          : /ambulance|medical|health/i.test(item.title)
+            ? Ambulance
+            : /traffic|road/i.test(item.title)
+              ? CarFront
+              : Shield,
+      }));
+    if (live.length) return live;
+
+    return profile
+      ? [
+          { label: "National Emergency", number: profile.emergency.national, icon: Shield },
+          { label: "State Police", number: profile.emergency.police, icon: Shield },
+          { label: "Fire Service", number: profile.emergency.fire, icon: Flame },
+          { label: "Ambulance", number: profile.emergency.ambulance, icon: Ambulance },
+        ]
+      : [
+          { label: "Police Command", number: "112", icon: Shield },
+          { label: "Fire Service", number: "0803 208 3000", icon: Flame },
+          { label: "Ambulance (SEMA)", number: "0803 300 3000", icon: Ambulance },
+          { label: "Traffic", number: "0800 000 0000", icon: CarFront },
+        ];
+  }, [published, profile]);
 
   return (
     <div className="space-y-5">
@@ -148,19 +216,131 @@ export default function StateHub() {
           {governor.tagline} Access official state directories, regulatory
           frameworks, and civic infrastructure data.
         </p>
-        <div className="mt-5 inline-flex items-center gap-3 rounded-xl border border-navy/10 bg-[#f7faf9] p-2 pr-4">
-          <Image
-            src={governor.photo}
-            alt={governor.name}
-            width={44}
-            height={44}
-            className="h-11 w-11 rounded-full object-cover"
-          />
-          <div>
-            <p className="text-sm font-bold text-navy">{governor.name}</p>
-            <p className="text-xs text-slate">Executive Governor</p>
+        <div className="mt-5 flex flex-wrap items-start gap-4">
+          <div className="inline-flex items-center gap-3 rounded-xl border border-navy/10 bg-[#f7faf9] p-2 pr-4">
+            <Image
+              src={governor.photo}
+              alt={governor.name}
+              width={44}
+              height={44}
+              className="h-11 w-11 rounded-full object-cover"
+            />
+            <div>
+              <p className="text-sm font-bold text-navy">{governor.name}</p>
+              <p className="text-xs text-slate">
+                {selectedState === "FCT" ? "Minister" : "Executive Governor"}
+                {governor.party ? ` · ${governor.party}` : ""}
+                {profile?.termEndYear ? ` · term to ${profile.termEndYear}` : ""}
+              </p>
+              {profile?.ssg ? (
+                <p className="mt-0.5 text-xs text-slate">SSG: {profile.ssg}</p>
+              ) : null}
+              {profile?.speaker ? (
+                <p className="text-xs text-slate">Speaker: {profile.speaker}</p>
+              ) : null}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {profile?.officialPortal ? (
+              <a
+                href={profile.officialPortal}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex items-center gap-1.5 rounded-full border border-navy/10 bg-white px-3 py-1.5 text-xs font-semibold text-navy hover:border-forest/30 hover:text-forest"
+              >
+                Official website
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            ) : null}
+            {profile?.procurementPortal ? (
+              <a
+                href={profile.procurementPortal}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex items-center gap-1.5 rounded-full border border-navy/10 bg-white px-3 py-1.5 text-xs font-semibold text-navy hover:border-forest/30 hover:text-forest"
+              >
+                Open tenders portal
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            ) : null}
           </div>
         </div>
+      </section>
+
+      {announcements.length ? (
+        <section className="rounded-2xl border border-navy/8 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="inline-flex items-center gap-2 font-display text-lg font-bold">
+              <Megaphone className="h-4 w-4 text-forest" />
+              From the {selectedState} government
+            </h2>
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-forest">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-forest/60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-forest" />
+              </span>
+              Official
+            </span>
+          </div>
+          <ul className="space-y-3">
+            {announcements.slice(0, 6).map((item) => (
+              <li
+                key={item.id}
+                className="rounded-xl border border-navy/8 bg-[#f7faf9] p-4"
+              >
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="rounded-full bg-forest/10 px-2 py-0.5 font-bold text-forest">
+                    {item.type === "service"
+                      ? "Citizen service"
+                      : item.type === "notice"
+                        ? "Public notice"
+                        : "Announcement"}
+                  </span>
+                  <span className="text-slate">
+                    {new Date(item.effective_date ?? item.created_at).toLocaleDateString(
+                      "en-NG",
+                      { day: "numeric", month: "short", year: "numeric" },
+                    )}
+                  </span>
+                </div>
+                <p className="mt-2 font-semibold text-navy">{item.title}</p>
+                {item.body ? (
+                  <p className="mt-1 text-sm leading-relaxed text-slate">{item.body}</p>
+                ) : null}
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate">
+                  {item.contact ? <span>{item.contact}</span> : null}
+                  {item.phone ? <span>{item.phone}</span> : null}
+                  {item.url ? (
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="inline-flex items-center gap-1 font-semibold text-forest"
+                    >
+                      Details
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <section className="rounded-2xl border border-navy/8 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="inline-flex items-center gap-2 font-display text-lg font-bold">
+            <MapPinned className="h-4 w-4 text-forest" />
+            Your Location
+          </h2>
+          <span className="text-xs text-slate">Auto-detected via GPS + maps</span>
+        </div>
+        <StateMap
+          selectedState={selectedState}
+          onStateDetected={(state) => setSelectedState(state)}
+          height="280px"
+        />
       </section>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">

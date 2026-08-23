@@ -27,6 +27,7 @@ import {
   writeJson,
   type SignupRole,
 } from "@/lib/session";
+import { kycUrl, safeReturnPath } from "@/lib/returnUrl";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -38,9 +39,12 @@ export default function RegisterPage() {
   const [state, setState] = useState("");
   const [password, setPassword] = useState("");
   const [agreed, setAgreed] = useState(false);
+  const [returnPath, setReturnPath] = useState("/dashboard");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    setReturnPath(safeReturnPath(params.get("next")));
     const fromQuery = params.get("role");
     const stored = readJson<SignupRole>(SIGNUP_ROLE_KEY);
     const next = isSignupRole(fromQuery) ? fromQuery : stored;
@@ -52,7 +56,7 @@ export default function RegisterPage() {
     setRole(next);
   }, [router]);
 
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!role) {
       router.replace("/signup");
@@ -62,23 +66,40 @@ export default function RegisterPage() {
       toast.error("Please complete all fields.");
       return;
     }
+    if (password.length < 8) {
+      toast.error("Use a password of at least 8 characters.");
+      return;
+    }
     if (!agreed) {
       toast.error("Please agree to the Terms of Service.");
       return;
     }
-    startRegistration({
-      name,
-      email: email.trim().toLowerCase(),
-      phone,
-      state,
-      role,
-    });
-    toast.success(
-      role === "business"
-        ? "Business account created. Complete corporate verification next."
-        : "Account created. Complete verification to continue.",
-    );
-    router.push("/kyc");
+
+    setBusy(true);
+    try {
+      const result = await startRegistration({
+        name,
+        email: email.trim().toLowerCase(),
+        phone,
+        state,
+        role,
+        password,
+      });
+
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+
+      toast.success(
+        role === "business"
+          ? "Business account created. Complete corporate verification next."
+          : "Account created. Complete verification to continue.",
+      );
+      router.push(kycUrl(returnPath));
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (!role) {
@@ -177,7 +198,8 @@ export default function RegisterPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="********"
+                placeholder="At least 8 characters"
+                autoComplete="new-password"
                 className="auth-input"
               />
             </Field>
@@ -203,9 +225,10 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orange py-3.5 text-sm font-semibold text-white transition hover:bg-orange-hover"
+              disabled={busy}
+              className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orange py-3.5 text-sm font-semibold text-white transition hover:bg-orange-hover disabled:opacity-60"
             >
-              Create Account
+              {busy ? "Creating account…" : "Create Account"}
               <ArrowRight className="h-4 w-4" />
             </button>
           </form>

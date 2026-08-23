@@ -1,11 +1,6 @@
-import type { Metadata } from "next";
-import AdminConsole from "@/components/dashboard/AdminConsole";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Admin",
-  description: "Manage NaijaPass users, verifications, and marketplace listings.",
-};
-
-export default function AdminPage() {
-  return <AdminConsole />;
+/** Admin lives at /admin — keep this route for old bookmarks. */
+export default function LegacyAdminRedirect() {
+  redirect("/admin");
 }

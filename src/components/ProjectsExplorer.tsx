@@ -1,8 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
   ChevronLeft,
@@ -18,12 +17,15 @@ import {
 } from "lucide-react";
 import {
   lgasByState,
-  projects,
+  projectDetailPath,
+  projectFeedbackPath,
   projectStates,
   type AdminEra,
   type Project,
   type ProjectStatus,
 } from "@/data/projects";
+import { useSiteState } from "@/lib/siteState";
+import { useProjects } from "@/lib/db/projects";
 
 const PAGE_SIZE = 6;
 const MAX_BUDGET = 50;
@@ -56,13 +58,16 @@ function categoryIcon(category: string) {
   return Landmark;
 }
 
-function formatBudget(n: number) {
+function formatBudget(n: number, label?: string) {
+  if (n <= 0) return label && label !== "TBA" ? label : "Budget TBA";
   if (n >= 1_000_000_000) return `NGN ${(n / 1_000_000_000).toFixed(1)}B`;
   if (n >= 1_000_000) return `NGN ${(n / 1_000_000).toFixed(1)}M`;
   return `NGN ${n.toLocaleString()}`;
 }
 
 export default function ProjectsExplorer() {
+  const { selectedState, setSelectedState, ready } = useSiteState();
+  const { projects, source } = useProjects();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("budget-desc");
   const [erasSelected, setErasSelected] = useState<AdminEra[]>([
@@ -76,7 +81,22 @@ export default function ProjectsExplorer() {
   const [budgetMax, setBudgetMax] = useState(MAX_BUDGET);
   const [page, setPage] = useState(1);
 
-  const lgaOptions = state !== "All States" ? lgasByState[state] ?? [] : [];
+  useEffect(() => {
+    if (!ready) return;
+    setState(selectedState);
+    setLga("");
+    setPage(1);
+  }, [ready, selectedState]);
+
+  // Derived from whatever is on screen, so LGAs a state has just published
+  // show up in the filter without a redeploy.
+  const lgaOptions = useMemo(() => {
+    if (state === "All States") return [];
+    const live = Array.from(
+      new Set(projects.filter((p) => p.state === state).map((p) => p.lga)),
+    ).filter(Boolean);
+    return live.length ? live.sort() : (lgasByState[state] ?? []);
+  }, [projects, state]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -85,7 +105,7 @@ export default function ProjectsExplorer() {
       if (status !== "All" && p.status !== status) return false;
       if (state !== "All States" && p.state !== state) return false;
       if (lga && p.lga !== lga) return false;
-      if (p.budgetNgn > budgetMax * 1_000_000_000) return false;
+      if (p.budgetNgn > 0 && p.budgetNgn > budgetMax * 1_000_000_000) return false;
       if (q) {
         const hay = `${p.title} ${p.id} ${p.contractor} ${p.state}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -97,11 +117,11 @@ export default function ProjectsExplorer() {
       if (sort === "budget-asc") return a.budgetNgn - b.budgetNgn;
       if (sort === "reports") return b.reports - a.reports;
       if (sort === "name") return a.title.localeCompare(b.title);
-      return b.budgetNgn - a.budgetNgn;
+      return b.budgetNgn - a.budgetNgn || b.reports - a.reports;
     });
 
     return list;
-  }, [query, sort, erasSelected, status, state, lga, budgetMax]);
+  }, [projects, query, sort, erasSelected, status, state, lga, budgetMax]);
 
   const featured = filtered.find((p) => p.featured) ?? filtered[0];
   const rest = filtered.filter((p) => p.id !== featured?.id);
@@ -116,12 +136,20 @@ export default function ProjectsExplorer() {
     );
   };
 
+  const onStateChange = (next: string) => {
+    setState(next);
+    setLga("");
+    setPage(1);
+    setSelectedState(next);
+  };
+
   const reset = () => {
     setQuery("");
     setSort("budget-desc");
     setErasSelected(["current", "previous", "legacy"]);
     setStatus("All");
     setState("All States");
+    setSelectedState("All States");
     setLga("");
     setBudgetMax(MAX_BUDGET);
     setPage(1);
@@ -210,11 +238,7 @@ export default function ProjectsExplorer() {
             <div className="mt-3 space-y-2">
               <select
                 value={state}
-                onChange={(e) => {
-                  setState(e.target.value);
-                  setLga("");
-                  setPage(1);
-                }}
+                onChange={(e) => onStateChange(e.target.value)}
                 className="w-full rounded-lg border border-navy/10 bg-white px-3 py-2.5 text-sm text-navy outline-none"
               >
                 {projectStates.map((s) => (
@@ -271,6 +295,22 @@ export default function ProjectsExplorer() {
         </aside>
 
         <div>
+          <p className="mb-4 flex items-center gap-2 text-xs font-semibold text-slate">
+            {source === "database" ? (
+              <>
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-forest/60" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-forest" />
+                </span>
+                Live from state governments
+              </>
+            ) : null}
+            <span className="text-slate/70">
+              {filtered.length.toLocaleString("en-NG")} project
+              {filtered.length === 1 ? "" : "s"}
+            </span>
+          </p>
+
           {featured ? (
             <FeaturedCard project={featured} />
           ) : (
@@ -302,46 +342,49 @@ export default function ProjectsExplorer() {
 
 function FeaturedCard({ project }: { project: Project }) {
   return (
-    <article className="overflow-hidden rounded-2xl border border-navy/8 bg-white shadow-sm md:grid md:grid-cols-[280px_minmax(0,1fr)]">
-      <div className="relative min-h-[200px] bg-sky-50">
-        <Image
-          src={project.image}
-          alt={project.title}
-          fill
-          className="object-cover"
-          sizes="280px"
-        />
+    <article className="overflow-hidden rounded-2xl border border-navy/8 bg-white p-5 shadow-sm md:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate">
+          <span>{project.category}</span>
+          <span className="text-navy">{project.budgetLabel}</span>
+        </div>
         <span
-          className={`absolute bottom-3 left-3 rounded-md px-2.5 py-1 text-[11px] font-bold ${statusStyle[project.status]}`}
+          className={`rounded-md px-2.5 py-1 text-[11px] font-bold ${statusStyle[project.status]}`}
         >
           {project.status}
         </span>
       </div>
-      <div className="p-5 md:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold uppercase tracking-wide text-slate">
-          <span>{project.category}</span>
-          <span className="text-navy">{project.budgetLabel}</span>
-        </div>
-        <h2 className="mt-2 font-display text-xl font-bold text-navy md:text-2xl">
-          {project.title}
-        </h2>
-        <p className="mt-2 text-sm leading-relaxed text-slate">
-          {project.description}
-        </p>
-        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-navy-muted">
+      <h2 className="mt-3 font-display text-xl font-bold text-navy md:text-2xl">
+        {project.title}
+      </h2>
+      <p className="mt-2 text-sm leading-relaxed text-slate">{project.description}</p>
+      <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-navy-muted">
+        <span>
+          <strong>Contractor:</strong> {project.contractor}
+        </span>
+        {project.completion && (
           <span>
-            <strong>Contractor:</strong> {project.contractor}
+            <strong>Est. Completion:</strong> {project.completion}
           </span>
-          {project.completion && (
-            <span>
-              <strong>Est. Completion:</strong> {project.completion}
-            </span>
-          )}
-          <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 font-semibold text-sky-800">
-            <FileText className="h-3.5 w-3.5" />
-            {project.reports} Reports
-          </span>
-        </div>
+        )}
+        <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 font-semibold text-sky-800">
+          <FileText className="h-3.5 w-3.5" />
+          {project.reports} Reports
+        </span>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <Link
+          href={projectDetailPath(project.id)}
+          className="text-sm font-semibold text-orange hover:underline"
+        >
+          View project details
+        </Link>
+        <Link
+          href={projectFeedbackPath(project.id)}
+          className="text-sm font-semibold text-navy/70 hover:text-navy"
+        >
+          Field reports
+        </Link>
       </div>
     </article>
   );
@@ -349,7 +392,6 @@ function FeaturedCard({ project }: { project: Project }) {
 
 function ProjectCard({ project }: { project: Project }) {
   const Icon = categoryIcon(project.category);
-  const stalled = project.status === "Stalled";
 
   return (
     <article className="flex flex-col rounded-2xl border border-navy/8 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
@@ -370,7 +412,9 @@ function ProjectCard({ project }: { project: Project }) {
       <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
         <div>
           <dt className="text-slate">Budget Allocation</dt>
-          <dd className="mt-0.5 font-semibold text-navy">{formatBudget(project.budgetNgn)}</dd>
+          <dd className="mt-0.5 font-semibold text-navy">
+            {formatBudget(project.budgetNgn, project.budgetLabel)}
+          </dd>
         </div>
         <div>
           <dt className="text-slate">State</dt>
@@ -382,12 +426,18 @@ function ProjectCard({ project }: { project: Project }) {
       </dl>
       <div className="mt-auto flex items-center justify-between pt-4">
         <Link
-          href="/feedback"
-          className={`text-sm font-semibold ${stalled ? "text-red-600" : "text-orange"}`}
+          href={projectDetailPath(project.id)}
+          className="text-sm font-semibold text-orange hover:underline"
         >
-          {stalled ? "View Status Report" : "View Details"}
+          View project details
         </Link>
-        <span className="text-xs text-slate">{project.reports} reports</span>
+        <Link
+          href={projectFeedbackPath(project.id)}
+          className="text-xs font-semibold text-navy/60 hover:text-navy"
+          aria-label="Open feedback"
+        >
+          Feedback
+        </Link>
       </div>
     </article>
   );

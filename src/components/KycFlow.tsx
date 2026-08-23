@@ -1,28 +1,31 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { ArrowRight, Lock, Shield } from "lucide-react";
 import FileDropzone from "@/components/FileDropzone";
 import NaijaPassMark from "@/components/NaijaPassMark";
 import { useSession } from "@/components/SessionProvider";
 import { businessTypes } from "@/data/marketplace";
+import { safeReturnPath } from "@/lib/returnUrl";
 
 export default function KycFlow() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnPath = safeReturnPath(searchParams.get("next"));
   const { ready, user, pending, completeKyc } = useSession();
 
   useEffect(() => {
     if (!ready) return;
     if (user?.verified) {
-      router.replace("/dashboard");
+      router.replace(returnPath);
       return;
     }
     if (!pending) {
       router.replace("/signup");
     }
-  }, [ready, user, pending, router]);
+  }, [ready, user, pending, router, returnPath]);
 
   if (!ready || user?.verified || !pending) {
     return (
@@ -32,14 +35,18 @@ export default function KycFlow() {
     );
   }
 
-  const finish = (extra?: Parameters<typeof completeKyc>[0]) => {
-    completeKyc(extra);
+  const finish = async (extra?: Parameters<typeof completeKyc>[0]) => {
+    const verified = await completeKyc(extra);
+    if (!verified) {
+      toast.error("Could not save your verification. Please try again.");
+      return;
+    }
     toast.success(
       pending.role === "business"
         ? "Corporate verification submitted. Welcome to the portal."
         : "Verification submitted. We’ll review shortly.",
     );
-    router.push("/dashboard");
+    router.push(returnPath);
   };
 
   return (
@@ -66,10 +73,10 @@ export default function KycFlow() {
           {pending.role === "business" ? (
             <BusinessForm
               defaultName={pending.name}
-              onDone={(details) => finish(details)}
+              onDone={(details) => void finish(details)}
             />
           ) : (
-            <IndividualForm onDone={() => finish()} />
+            <IndividualForm onDone={() => void finish()} />
           )}
         </div>
       </div>
@@ -83,7 +90,7 @@ function IndividualForm({ onDone }: { onDone: () => void }) {
   const [last, setLast] = useState("");
   const [nin, setNin] = useState("");
 
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!idFile) {
       toast.error("Upload a valid ID to continue.");
@@ -97,7 +104,27 @@ function IndividualForm({ onDone }: { onDone: () => void }) {
       toast.error("NIN must be 11 digits.");
       return;
     }
-    onDone();
+
+    try {
+      const res = await fetch("/api/kyc/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "individual",
+          nin: nin.trim(),
+          firstName: first.trim(),
+          lastName: last.trim(),
+        }),
+      });
+      const data = (await res.json()) as { verified?: boolean; error?: string };
+      if (!res.ok || !data.verified) {
+        toast.error(data.error ?? "Verification failed.");
+        return;
+      }
+      onDone();
+    } catch {
+      toast.error("Could not reach verification service.");
+    }
   };
 
   return (
@@ -206,7 +233,7 @@ function BusinessForm({
     setStep(2);
   };
 
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!tcc) {
       toast.error("Upload a tax clearance certificate.");
@@ -216,7 +243,27 @@ function BusinessForm({
       toast.error("TIN must be 14 digits.");
       return;
     }
-    onDone({ businessType, rcNumber: rc.trim() });
+
+    try {
+      const res = await fetch("/api/kyc/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "business",
+          rcNumber: rc.trim(),
+          tin: tin.trim(),
+          businessName: businessName.trim(),
+        }),
+      });
+      const data = (await res.json()) as { verified?: boolean; error?: string };
+      if (!res.ok || !data.verified) {
+        toast.error(data.error ?? "Verification failed.");
+        return;
+      }
+      onDone({ businessType, rcNumber: rc.trim() });
+    } catch {
+      toast.error("Could not reach verification service.");
+    }
   };
 
   if (step === 1) {

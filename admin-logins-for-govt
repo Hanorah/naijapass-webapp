@@ -1,0 +1,261 @@
+[
+  {
+    "state": "Abia",
+    "login_email": "abia@govt.naijapass.ng",
+    "password": "Abia@NaijaPass2026",
+    "office": "Abia State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Adamawa",
+    "login_email": "adamawa@govt.naijapass.ng",
+    "password": "Adamawa@NaijaPass2026",
+    "office": "Adamawa State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Akwa Ibom",
+    "login_email": "akwaibom@govt.naijapass.ng",
+    "password": "AkwaIbom@NaijaPass2026",
+    "office": "Akwa Ibom State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Anambra",
+    "login_email": "anambra@govt.naijapass.ng",
+    "password": "Anambra@NaijaPass2026",
+    "office": "Anambra State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Bauchi",
+    "login_email": "bauchi@govt.naijapass.ng",
+    "password": "Bauchi@NaijaPass2026",
+    "office": "Bauchi State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Bayelsa",
+    "login_email": "bayelsa@govt.naijapass.ng",
+    "password": "Bayelsa@NaijaPass2026",
+    "office": "Bayelsa State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Benue",
+    "login_email": "benue@govt.naijapass.ng",
+    "password": "Benue@NaijaPass2026",
+    "office": "Benue State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Borno",
+    "login_email": "borno@govt.naijapass.ng",
+    "password": "Borno@NaijaPass2026",
+    "office": "Borno State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Cross River",
+    "login_email": "crossriver@govt.naijapass.ng",
+    "password": "CrossRiver@NaijaPass2026",
+    "office": "Cross River State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Delta",
+    "login_email": "delta@govt.naijapass.ng",
+    "password": "Delta@NaijaPass2026",
+    "office": "Delta State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Ebonyi",
+    "login_email": "ebonyi@govt.naijapass.ng",
+    "password": "Ebonyi@NaijaPass2026",
+    "office": "Ebonyi State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Edo",
+    "login_email": "edo@govt.naijapass.ng",
+    "password": "Edo@NaijaPass2026",
+    "office": "Edo State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Ekiti",
+    "login_email": "ekiti@govt.naijapass.ng",
+    "password": "Ekiti@NaijaPass2026",
+    "office": "Ekiti State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Enugu",
+    "login_email": "enugu@govt.naijapass.ng",
+    "password": "Enugu@NaijaPass2026",
+    "office": "Enugu State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Gombe",
+    "login_email": "gombe@govt.naijapass.ng",
+    "password": "Gombe@NaijaPass2026",
+    "office": "Gombe State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Imo",
+    "login_email": "imo@govt.naijapass.ng",
+    "password": "Imo@NaijaPass2026",
+    "office": "Imo State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Jigawa",
+    "login_email": "jigawa@govt.naijapass.ng",
+    "password": "Jigawa@NaijaPass2026",
+    "office": "Jigawa State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Kaduna",
+    "login_email": "kaduna@govt.naijapass.ng",
+    "password": "Kaduna@NaijaPass2026",
+    "office": "Kaduna State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Kano",
+    "login_email": "kano@govt.naijapass.ng",
+    "password": "Kano@NaijaPass2026",
+    "office": "Kano State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Katsina",
+    "login_email": "katsina@govt.naijapass.ng",
+    "password": "Katsina@NaijaPass2026",
+    "office": "Katsina State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Kebbi",
+    "login_email": "kebbi@govt.naijapass.ng",
+    "password": "Kebbi@NaijaPass2026",
+    "office": "Kebbi State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Kogi",
+    "login_email": "kogi@govt.naijapass.ng",
+    "password": "Kogi@NaijaPass2026",
+    "office": "Kogi State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Kwara",
+    "login_email": "kwara@govt.naijapass.ng",
+    "password": "Kwara@NaijaPass2026",
+    "office": "Kwara State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Lagos",
+    "login_email": "lagos@govt.naijapass.ng",
+    "password": "Lagos@NaijaPass2026",
+    "office": "Lagos State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Nasarawa",
+    "login_email": "nasarawa@govt.naijapass.ng",
+    "password": "Nasarawa@NaijaPass2026",
+    "office": "Nasarawa State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Niger",
+    "login_email": "niger@govt.naijapass.ng",
+    "password": "Niger@NaijaPass2026",
+    "office": "Niger State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Ogun",
+    "login_email": "ogun@govt.naijapass.ng",
+    "password": "Ogun@NaijaPass2026",
+    "office": "Ogun State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Ondo",
+    "login_email": "ondo@govt.naijapass.ng",
+    "password": "Ondo@NaijaPass2026",
+    "office": "Ondo State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Osun",
+    "login_email": "osun@govt.naijapass.ng",
+    "password": "Osun@NaijaPass2026",
+    "office": "Osun State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Oyo",
+    "login_email": "oyo@govt.naijapass.ng",
+    "password": "Oyo@NaijaPass2026",
+    "office": "Oyo State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Plateau",
+    "login_email": "plateau@govt.naijapass.ng",
+    "password": "Plateau@NaijaPass2026",
+    "office": "Plateau State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Rivers",
+    "login_email": "rivers@govt.naijapass.ng",
+    "password": "Rivers@NaijaPass2026",
+    "office": "Rivers State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Sokoto",
+    "login_email": "sokoto@govt.naijapass.ng",
+    "password": "Sokoto@NaijaPass2026",
+    "office": "Sokoto State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Taraba",
+    "login_email": "taraba@govt.naijapass.ng",
+    "password": "Taraba@NaijaPass2026",
+    "office": "Taraba State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Yobe",
+    "login_email": "yobe@govt.naijapass.ng",
+    "password": "Yobe@NaijaPass2026",
+    "office": "Yobe State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "Zamfara",
+    "login_email": "zamfara@govt.naijapass.ng",
+    "password": "Zamfara@NaijaPass2026",
+    "office": "Zamfara State Government",
+    "account_status": "active"
+  },
+  {
+    "state": "FCT",
+    "login_email": "fct@govt.naijapass.ng",
+    "password": "FCT@NaijaPass2026",
+    "office": "Federal Capital Territory Administration",
+    "account_status": "active"
+  }
+]

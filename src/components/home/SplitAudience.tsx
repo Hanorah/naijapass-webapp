@@ -11,25 +11,34 @@ export default function SplitAudience() {
 
   useGSAP(
     () => {
-      gsap.from(".split-card", {
-        y: 36,
-        autoAlpha: 0,
-        duration: 0.9,
-        stagger: 0.12,
-        ease: "power3.out",
-        scrollTrigger: { trigger: root.current, start: "top 78%" },
-      });
+      gsap.fromTo(
+        ".split-card",
+        { y: 36, autoAlpha: 0 },
+        {
+          y: 0,
+          autoAlpha: 1,
+          duration: 0.9,
+          stagger: 0.12,
+          ease: "power3.out",
+          immediateRender: false,
+          scrollTrigger: {
+            trigger: root.current,
+            start: "top 82%",
+            once: true,
+          },
+        },
+      );
     },
     { scope: root },
   );
 
   return (
-    <section ref={root} className="bg-white px-5 pb-8 md:px-8 md:pb-10">
+    <section ref={root} className="relative z-[1] w-full max-w-[100vw] overflow-x-hidden bg-white px-5 pb-10 pt-4 md:px-8 md:pb-14 md:pt-6">
       <div className="mx-auto grid max-w-7xl overflow-hidden rounded-[32px] lg:grid-cols-2">
-        <article className="split-card group relative min-h-[520px] overflow-hidden">
+        <article className="split-card group relative min-h-[480px] overflow-hidden md:min-h-[560px]">
           <Image
             src="https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=1600&q=80"
-            alt="Infrastructure project site"
+            alt="Construction site in Nigeria"
             fill
             className="object-cover transition duration-700 group-hover:scale-105"
             sizes="(max-width: 1024px) 100vw, 50vw"
@@ -40,26 +49,26 @@ export default function SplitAudience() {
               For businesses
             </p>
             <h3 className="mt-3 max-w-sm font-serif text-[2.15rem] leading-[1.1] tracking-tight text-white md:text-4xl">
-              Compete with the file, not the rumour.
+              Bid on real tenders, not rumours.
             </h3>
             <p className="mt-3 max-w-md text-[15px] leading-relaxed text-white/65">
-              Filter by state, budget, and sector. Prepare bids from verified
-              directories, the AI desk, and a single procurement hub.
+              See open RFPs by state and sector, download the pack, and check who
+              won past awards before you spend on a bid.
             </p>
             <Link
               href="/projects"
               className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-white"
             >
-              Browse projects
+              Browse tenders
               <ArrowUpRight className="h-4 w-4" />
             </Link>
           </div>
         </article>
 
-        <article className="split-card group relative min-h-[520px] overflow-hidden">
+        <article className="split-card group relative min-h-[480px] overflow-hidden md:min-h-[560px]">
           <Image
             src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1600&q=80"
-            alt="Federal administrative buildings"
+            alt="Government building"
             fill
             className="object-cover transition duration-700 group-hover:scale-105"
             sizes="(max-width: 1024px) 100vw, 50vw"
@@ -70,11 +79,11 @@ export default function SplitAudience() {
               For government
             </p>
             <h3 className="mt-3 max-w-sm font-serif text-[2.15rem] leading-[1.1] tracking-tight text-white md:text-4xl">
-              Publish once. Track every award.
+              Put your tenders where firms look.
             </h3>
             <p className="mt-3 max-w-md text-[15px] leading-relaxed text-white/65">
-              Share clear RFPs, manage enquiries, and keep citizens informed with
-              live status, field reports, and open contracting data.
+              Publish RFPs and awards on NaijaPass so contractors in your state
+              see them the same day — not weeks later by courier.
             </p>
             <Link
               href="/signup"

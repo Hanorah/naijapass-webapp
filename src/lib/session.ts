@@ -11,6 +11,8 @@ export type PendingRegistration = {
 };
 
 export type SessionUser = {
+  /** Supabase auth user id. Absent only in offline demo mode. */
+  id?: string;
   name: string;
   email: string;
   phone: string;
@@ -19,13 +21,87 @@ export type SessionUser = {
   verified: boolean;
   businessType?: string;
   rcNumber?: string;
+  /** For role === "govt": the single state this account may publish for. */
+  govtState?: string;
+  department?: string;
+  officeTitle?: string;
+  accountStatus?: "pending" | "active" | "suspended" | "rejected";
 };
+
+/** A row of public.profiles, as returned by Supabase. */
+export type ProfileRow = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  phone: string | null;
+  role: string;
+  account_status: string;
+  state: string | null;
+  lga: string | null;
+  kyc_status: string;
+  business_name: string | null;
+  business_type: string | null;
+  cac_number: string | null;
+  govt_state: string | null;
+  department: string | null;
+  office_title: string | null;
+};
+
+export const PROFILE_COLUMNS =
+  "id, email, full_name, phone, role, account_status, state, lga, kyc_status, business_name, business_type, cac_number, govt_state, department, office_title";
+
+function toRole(value: string): Role {
+  return (ROLES as readonly string[]).includes(value) ? (value as Role) : "individual";
+}
+
+export function profileToSessionUser(profile: ProfileRow): SessionUser {
+  const role = toRole(profile.role);
+  return {
+    id: profile.id,
+    name: profile.full_name ?? profile.email?.split("@")[0] ?? "NaijaPass user",
+    email: profile.email ?? "",
+    phone: profile.phone ?? "",
+    state: profile.govt_state ?? profile.state ?? "",
+    role,
+    // Government and admin accounts are provisioned, so they are verified by
+    // definition; citizens and businesses must clear KYC first.
+    verified:
+      role === "govt" || role === "admin"
+        ? profile.account_status === "active"
+        : profile.kyc_status === "verified",
+    businessType: profile.business_type ?? undefined,
+    rcNumber: profile.cac_number ?? undefined,
+    govtState: profile.govt_state ?? undefined,
+    department: profile.department ?? undefined,
+    officeTitle: profile.office_title ?? undefined,
+    accountStatus: profile.account_status as SessionUser["accountStatus"],
+  };
+}
 
 export const SESSION_KEY = "naijapass.session";
 export const PENDING_KEY = "naijapass.pending";
 export const LISTINGS_KEY = "naijapass.listings";
 export const USERS_KEY = "naijapass.users";
 export const SIGNUP_ROLE_KEY = "naijapass.signupRole";
+export const PROJECT_FEEDBACK_KEY = "naijapass.projectFeedback";
+
+export type UserProjectFeedback = {
+  id: string;
+  projectId: string;
+  userEmail: string;
+  userName: string;
+  rating: 1 | 2 | 3 | 4 | 5;
+  topic: string;
+  body: string;
+  createdAt: string;
+};
+
+export type SubmitProjectFeedbackInput = {
+  projectId: string;
+  rating: 1 | 2 | 3 | 4 | 5;
+  topic: string;
+  body: string;
+};
 
 export function isSignupRole(value: unknown): value is SignupRole {
   return value === "individual" || value === "business";
@@ -72,6 +148,10 @@ export function removeKey(key: string) {
   window.localStorage.removeItem(key);
 }
 
+/**
+ * Offline demo accounts. Only reachable when Supabase is not configured, so
+ * the UI stays explorable before anyone has created a database.
+ */
 export function demoUserForEmail(email: string): SessionUser | null {
   const normalized = email.trim().toLowerCase();
   if (normalized === "admin@naijapass.ng") {
@@ -82,19 +162,41 @@ export function demoUserForEmail(email: string): SessionUser | null {
       state: "FCT",
       role: "admin",
       verified: true,
+      accountStatus: "active",
     };
   }
-  if (normalized === "govt@naijapass.ng") {
+  const govtMatch = /^([a-z]+)@govt\.naijapass\.ng$/.exec(normalized);
+  if (govtMatch || normalized === "govt@naijapass.ng") {
+    const slug = govtMatch?.[1] ?? "fct";
+    const state = demoStateForSlug(slug);
     return {
-      name: "FCT Secretariat",
+      name: state === "FCT" ? "Federal Capital Territory Administration" : `${state} State Government`,
       email: normalized,
       phone: "+234 800 000 0002",
-      state: "FCT",
+      state,
       role: "govt",
       verified: true,
+      govtState: state,
+      department: "Office of the Secretary to the State Government",
+      accountStatus: "active",
     };
   }
   return null;
+}
+
+/** Maps "crossriver" back to "Cross River" for the offline demo logins. */
+function demoStateForSlug(slug: string): string {
+  const known = [
+    "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue",
+    "Borno", "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu",
+    "Gombe", "Imo", "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi",
+    "Kwara", "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo",
+    "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara", "FCT",
+  ];
+  const normalized = slug.toLowerCase().replace(/[\s-]/g, "");
+  return (
+    known.find((s) => s.toLowerCase().replace(/[\s-]/g, "") === normalized) ?? "FCT"
+  );
 }
 
 export function readUsers(): SessionUser[] {

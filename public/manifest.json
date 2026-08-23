@@ -1,0 +1,45 @@
+{
+  "name": "NaijaPass",
+  "short_name": "NaijaPass",
+  "description": "Unified gateway to Nigeria's 36 states — intelligence, verified directories, and open procurement.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c1218",
+  "theme_color": "#0f9d6c",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en-NG",
+  "categories": ["government", "business", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "url": "/dashboard",
+      "description": "Open the civic portal"
+    },
+    {
+      "name": "Emergency",
+      "url": "/dashboard/emergency",
+      "description": "Emergency contacts"
+    },
+    {
+      "name": "Procurement",
+      "url": "/dashboard/procurement",
+      "description": "Open tenders"
+    }
+  ]
+}

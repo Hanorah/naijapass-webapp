@@ -37,9 +37,9 @@
   --color-forest-hover: var(--forest-hover);
   --color-hero-bg: var(--hero-bg);
   --color-gold: var(--gold);
-  --font-sans: var(--font-manrope);
-  --font-display: var(--font-sora);
-  --font-serif: var(--font-instrument);
+  --font-sans: var(--font-jakarta);
+  --font-display: var(--font-jakarta);
+  --font-serif: var(--font-newsreader);
 }
 
 * {
@@ -48,12 +48,18 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
   background: #ffffff;
   color: var(--foreground);
-  font-family: var(--font-manrope), system-ui, sans-serif;
+  font-family: var(--font-jakarta), system-ui, sans-serif;
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.011em;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 ::selection {
@@ -184,17 +190,45 @@ body {
   position: relative;
   isolation: isolate;
   background: linear-gradient(
-    180deg,
-    rgba(14, 14, 22, 0.18),
-    rgba(14, 14, 22, 0.32)
+    145deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(15, 157, 108, 0.08) 35%,
+    rgba(8, 42, 50, 0.28) 100%
   );
-  backdrop-filter: blur(22px) saturate(1.45);
-  -webkit-backdrop-filter: blur(22px) saturate(1.45);
+  backdrop-filter: blur(28px) saturate(1.65) brightness(1.05);
+  -webkit-backdrop-filter: blur(28px) saturate(1.65) brightness(1.05);
   box-shadow:
-    0 24px 60px rgba(0, 0, 0, 0.45),
-    inset 0 1px 1px rgba(255, 255, 255, 0.5),
-    inset 0 -8px 20px rgba(255, 255, 255, 0.06),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.13);
+    0 32px 80px rgba(0, 0, 0, 0.55),
+    0 8px 32px rgba(15, 157, 108, 0.12),
+    inset 0 1px 1px rgba(255, 255, 255, 0.55),
+    inset 0 -12px 28px rgba(255, 255, 255, 0.04),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  transition: box-shadow 0.4s ease;
+}
+
+.glass-nigeria:hover {
+  box-shadow:
+    0 40px 100px rgba(0, 0, 0, 0.6),
+    0 12px 40px rgba(15, 157, 108, 0.18),
+    inset 0 1px 1px rgba(255, 255, 255, 0.6),
+    inset 0 -12px 28px rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+
+.glass-nigeria::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.14) 0%,
+    transparent 40%,
+    transparent 60%,
+    rgba(15, 157, 108, 0.06) 100%
+  );
 }
 
 .glass-nigeria::after {
@@ -205,11 +239,16 @@ body {
   pointer-events: none;
   z-index: 2;
   background: radial-gradient(
-    180px circle at var(--gx, 28%) var(--gy, 18%),
-    rgba(255, 255, 255, 0.22),
-    rgba(255, 255, 255, 0.04) 45%,
-    transparent 70%
+    220px circle at var(--gx, 28%) var(--gy, 18%),
+    rgba(255, 255, 255, 0.28),
+    rgba(110, 231, 183, 0.08) 35%,
+    transparent 65%
   );
+  transition: opacity 0.2s ease;
+}
+
+.glass-map-svg {
+  filter: drop-shadow(0 24px 48px rgba(0, 0, 0, 0.4));
 }
 
 .glass-chip {

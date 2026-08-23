@@ -1,7 +1,7 @@
 import Hero from "@/components/Hero";
-import WordTicker from "@/components/home/WordTicker";
-import Craft from "@/components/home/Craft";
+import NigeriaReveal from "@/components/home/NigeriaReveal";
 import SplitAudience from "@/components/home/SplitAudience";
+import Craft from "@/components/home/Craft";
 import FeaturedWork from "@/components/home/FeaturedWork";
 import StatsBand from "@/components/home/StatsBand";
 import Testimonials from "@/components/home/Testimonials";
@@ -12,9 +12,9 @@ export default function Home() {
   return (
     <>
       <Hero />
-      <WordTicker />
-      <Craft />
+      <NigeriaReveal />
       <SplitAudience />
+      <Craft />
       <FeaturedWork />
       <StatsBand />
       <Testimonials />

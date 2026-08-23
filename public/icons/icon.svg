@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="108" fill="#0c1218"/>
+  <rect x="32" y="32" width="448" height="448" rx="88" fill="#0f9d6c" opacity="0.15"/>
+  <path d="M80 120 C120 100 180 95 240 110 C300 125 360 115 420 130 C440 135 432 180 420 220 C400 280 340 340 260 370 C200 390 140 380 100 350 C70 330 60 280 65 220 C68 180 60 150 80 120 Z" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.4)" stroke-width="3"/>
+  <circle cx="180" cy="280" r="12" fill="#ffffff"/>
+  <circle cx="260" cy="220" r="16" fill="#6ee7b7"/>
+  <circle cx="320" cy="260" r="10" fill="#ffffff" opacity="0.8"/>
+  <text x="256" y="440" text-anchor="middle" fill="#ffffff" font-family="system-ui,sans-serif" font-size="48" font-weight="700" letter-spacing="-1">NP</text>
+</svg>

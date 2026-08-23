@@ -1,30 +1,30 @@
 "use client";
 
-import { useRef, type CSSProperties, type MouseEvent } from "react";
+import { useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { gsap, useGSAP } from "@/lib/gsap";
 
 const nodes = [
-  { id: "sokoto", x: 109, y: 46 },
-  { id: "katsina", x: 205, y: 47 },
-  { id: "kano", x: 241, y: 88 },
-  { id: "maiduguri", x: 426, y: 95 },
-  { id: "kebbi", x: 68, y: 69 },
-  { id: "kaduna", x: 198, y: 150 },
-  { id: "abuja", x: 200, y: 212 },
-  { id: "bauchi", x: 294, y: 159 },
-  { id: "gombe", x: 347, y: 160 },
-  { id: "yola", x: 399, y: 205 },
-  { id: "ilorin", x: 82, y: 235 },
-  { id: "lokoja", x: 170, y: 265 },
-  { id: "makurdi", x: 241, y: 267 },
-  { id: "ibadan", x: 56, y: 282 },
-  { id: "lagos", x: 35, y: 318 },
-  { id: "benin", x: 124, y: 326 },
-  { id: "enugu", x: 200, y: 322 },
-  { id: "ph", x: 180, y: 390 },
-  { id: "calabar", x: 234, y: 384 },
-  { id: "jos", x: 256, y: 176 },
-  { id: "minna", x: 162, y: 188 },
+  { id: "sokoto", label: "Sokoto", x: 109, y: 46, major: false },
+  { id: "katsina", label: "Katsina", x: 205, y: 47, major: false },
+  { id: "kano", label: "Kano", x: 241, y: 88, major: true },
+  { id: "maiduguri", label: "Maiduguri", x: 426, y: 95, major: true },
+  { id: "kebbi", label: "Kebbi", x: 68, y: 69, major: false },
+  { id: "kaduna", label: "Kaduna", x: 198, y: 150, major: true },
+  { id: "abuja", label: "Abuja", x: 200, y: 212, major: true },
+  { id: "bauchi", label: "Bauchi", x: 294, y: 159, major: false },
+  { id: "gombe", label: "Gombe", x: 347, y: 160, major: false },
+  { id: "yola", label: "Yola", x: 399, y: 205, major: false },
+  { id: "ilorin", label: "Ilorin", x: 82, y: 235, major: false },
+  { id: "lokoja", label: "Lokoja", x: 170, y: 265, major: false },
+  { id: "makurdi", label: "Makurdi", x: 241, y: 267, major: false },
+  { id: "ibadan", label: "Ibadan", x: 56, y: 282, major: true },
+  { id: "lagos", label: "Lagos", x: 35, y: 318, major: true },
+  { id: "benin", label: "Benin", x: 124, y: 326, major: false },
+  { id: "enugu", label: "Enugu", x: 200, y: 322, major: true },
+  { id: "ph", label: "Port Harcourt", x: 180, y: 390, major: true },
+  { id: "calabar", label: "Calabar", x: 234, y: 384, major: false },
+  { id: "jos", label: "Jos", x: 256, y: 176, major: false },
+  { id: "minna", label: "Minna", x: 162, y: 188, major: false },
 ];
 
 const edges: [string, string][] = [
@@ -66,29 +66,57 @@ const NIGERIA_PATH =
 
 export default function NigeriaMap({
   className = "",
+  interactive = true,
 }: {
   className?: string;
+  interactive?: boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
   useGSAP(
     () => {
       const mm = gsap.matchMedia();
       mm.add("(prefers-reduced-motion: no-preference)", () => {
         gsap.from(".glass-node", {
-          scale: 0.2,
+          scale: 0,
           autoAlpha: 0,
-          duration: 0.55,
-          stagger: { each: 0.03, from: "center" },
-          ease: "back.out(1.6)",
-          delay: 0.25,
+          duration: 0.65,
+          stagger: { each: 0.035, from: "center" },
+          ease: "back.out(2.2)",
+          delay: 0.35,
         });
         gsap.from(".glass-edge", {
           autoAlpha: 0,
-          duration: 0.8,
-          stagger: 0.012,
+          scaleX: 0,
+          transformOrigin: "0% 50%",
+          duration: 0.9,
+          stagger: 0.015,
           ease: "power2.out",
-          delay: 0.15,
+          delay: 0.2,
+        });
+        gsap.from(".glass-map-fill", {
+          autoAlpha: 0,
+          scale: 0.92,
+          transformOrigin: "50% 50%",
+          duration: 1.2,
+          ease: "power3.out",
+        });
+        gsap.from(".glass-orb", {
+          scale: 0.6,
+          autoAlpha: 0,
+          duration: 1.4,
+          stagger: 0.15,
+          ease: "power2.out",
+          delay: 0.1,
+        });
+
+        gsap.to(".glass-pulse", {
+          scale: 2,
+          autoAlpha: 0,
+          duration: 2.8,
+          stagger: { each: 0.4, repeat: -1 },
+          ease: "power1.out",
         });
       });
       return () => mm.revert();
@@ -97,6 +125,7 @@ export default function NigeriaMap({
   );
 
   const onMove = (e: MouseEvent<HTMLDivElement>) => {
+    if (!interactive) return;
     const el = root.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
@@ -104,46 +133,94 @@ export default function NigeriaMap({
     const gy = ((e.clientY - rect.top) / rect.height) * 100;
     el.style.setProperty("--gx", `${gx.toFixed(1)}%`);
     el.style.setProperty("--gy", `${gy.toFixed(1)}%`);
+    el.style.setProperty("--mx", `${((gx - 50) * 0.08).toFixed(2)}deg`);
+    el.style.setProperty("--my", `${((gy - 50) * -0.06).toFixed(2)}deg`);
+  };
+
+  const onLeave = () => {
+    const el = root.current;
+    if (!el) return;
+    el.style.setProperty("--gx", "28%");
+    el.style.setProperty("--gy", "18%");
+    el.style.setProperty("--mx", "0deg");
+    el.style.setProperty("--my", "0deg");
+    setHoveredNode(null);
   };
 
   return (
     <div
       ref={root}
       onMouseMove={onMove}
-      className={`glass-nigeria group relative overflow-hidden rounded-[28px] p-4 sm:p-6 md:p-8 ${className}`}
+      onMouseLeave={onLeave}
+      className={`glass-nigeria group relative overflow-hidden rounded-[32px] p-4 sm:p-6 md:p-8 ${className}`}
       style={
         {
           "--gx": "28%",
           "--gy": "18%",
+          "--mx": "0deg",
+          "--my": "0deg",
         } as CSSProperties
       }
     >
-      <div className="pointer-events-none absolute inset-x-8 top-0 z-[1] h-px bg-gradient-to-r from-transparent via-white/55 to-transparent" />
+      {/* Ambient orbs */}
+      <div className="glass-orb pointer-events-none absolute -left-8 -top-8 h-40 w-40 rounded-full bg-emerald-400/20 blur-3xl" />
+      <div className="glass-orb pointer-events-none absolute -bottom-6 -right-6 h-32 w-32 rounded-full bg-teal-300/15 blur-2xl" />
+      <div className="glass-orb pointer-events-none absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/8 blur-xl" />
+
+      {/* Top highlight edge */}
+      <div className="pointer-events-none absolute inset-x-6 top-0 z-[3] h-px bg-gradient-to-r from-transparent via-white/70 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-12 top-px z-[3] h-px bg-gradient-to-r from-transparent via-emerald-300/40 to-transparent" />
+
+      {/* Corner accents */}
+      <div className="pointer-events-none absolute left-4 top-4 z-[3] h-8 w-8 rounded-tl-2xl border-l border-t border-white/25" />
+      <div className="pointer-events-none absolute bottom-4 right-4 z-[3] h-8 w-8 rounded-br-2xl border-b border-r border-white/20" />
 
       <svg
         viewBox="0 0 520 460"
-        className="relative z-[1] h-auto w-full drop-shadow-[0_20px_40px_rgba(0,0,0,0.35)]"
+        className="glass-map-svg relative z-[1] h-auto w-full"
         role="img"
-        aria-label="Glass network map of Nigeria"
+        aria-label="Interactive glass network map of Nigeria"
+        style={{
+          transform: "perspective(900px) rotateX(var(--my)) rotateY(var(--mx))",
+          transition: "transform 0.15s ease-out",
+        }}
       >
         <defs>
-          <linearGradient id="glassMapFill" x1="12%" y1="0%" x2="88%" y2="100%">
-            <stop offset="0%" stopColor="rgba(255,255,255,0.22)" />
-            <stop offset="45%" stopColor="rgba(15,157,108,0.35)" />
-            <stop offset="100%" stopColor="rgba(8,42,50,0.55)" />
+          <linearGradient id="glassMapFill" x1="8%" y1="0%" x2="92%" y2="100%">
+            <stop offset="0%" stopColor="rgba(255,255,255,0.28)" />
+            <stop offset="35%" stopColor="rgba(52,211,153,0.42)" />
+            <stop offset="70%" stopColor="rgba(15,157,108,0.38)" />
+            <stop offset="100%" stopColor="rgba(6,40,48,0.65)" />
+          </linearGradient>
+          <linearGradient id="glassMapShine" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="rgba(255,255,255,0)" />
+            <stop offset="50%" stopColor="rgba(255,255,255,0.15)" />
+            <stop offset="100%" stopColor="rgba(255,255,255,0)" />
           </linearGradient>
           <linearGradient id="glassWire" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="rgba(255,255,255,0.75)" />
-            <stop offset="50%" stopColor="rgba(94,234,212,0.9)" />
-            <stop offset="100%" stopColor="rgba(103,232,249,0.7)" />
+            <stop offset="0%" stopColor="rgba(255,255,255,0.85)" />
+            <stop offset="40%" stopColor="rgba(110,231,183,0.95)" />
+            <stop offset="100%" stopColor="rgba(34,211,238,0.75)" />
           </linearGradient>
-          <radialGradient id="glassNode" cx="40%" cy="35%" r="65%">
+          <radialGradient id="glassNode" cx="35%" cy="30%" r="70%">
             <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="45%" stopColor="#a7f3d0" />
+            <stop offset="40%" stopColor="#6ee7b7" />
             <stop offset="100%" stopColor="#0d9488" />
           </radialGradient>
-          <filter id="glassBlur" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="2.4" result="blur" />
+          <radialGradient id="glassNodeMajor" cx="35%" cy="30%" r="70%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="35%" stopColor="#a7f3d0" />
+            <stop offset="100%" stopColor="#059669" />
+          </radialGradient>
+          <filter id="glassGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="glassSoftBlur" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="1.8" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
@@ -154,14 +231,35 @@ export default function NigeriaMap({
           </clipPath>
         </defs>
 
+        {/* Outer glow silhouette */}
         <path
           d={NIGERIA_PATH}
-          fill="url(#glassMapFill)"
-          stroke="rgba(255,255,255,0.45)"
-          strokeWidth="1.5"
+          fill="none"
+          stroke="rgba(52,211,153,0.35)"
+          strokeWidth="6"
+          filter="url(#glassGlow)"
+          opacity="0.6"
         />
 
-        <g clipPath="url(#glassNg)" opacity="0.28">
+        {/* Main fill */}
+        <path
+          className="glass-map-fill"
+          d={NIGERIA_PATH}
+          fill="url(#glassMapFill)"
+          stroke="rgba(255,255,255,0.55)"
+          strokeWidth="1.8"
+        />
+
+        {/* Inner shine overlay */}
+        <path
+          d={NIGERIA_PATH}
+          fill="url(#glassMapShine)"
+          opacity="0.5"
+          clipPath="url(#glassNg)"
+        />
+
+        {/* Grid lines */}
+        <g clipPath="url(#glassNg)" opacity="0.22">
           {Array.from({ length: 9 }, (_, i) => (
             <line
               key={`h-${i}`}
@@ -169,8 +267,8 @@ export default function NigeriaMap({
               y1={40 + i * 46}
               x2="520"
               y2={40 + i * 46}
-              stroke="rgba(255,255,255,0.55)"
-              strokeWidth="0.4"
+              stroke="rgba(255,255,255,0.6)"
+              strokeWidth="0.35"
             />
           ))}
           {Array.from({ length: 10 }, (_, i) => (
@@ -180,13 +278,14 @@ export default function NigeriaMap({
               y1="0"
               x2={30 + i * 50}
               y2="460"
-              stroke="rgba(255,255,255,0.55)"
-              strokeWidth="0.4"
+              stroke="rgba(255,255,255,0.6)"
+              strokeWidth="0.35"
             />
           ))}
         </g>
 
-        <g clipPath="url(#glassNg)" filter="url(#glassBlur)">
+        {/* Network edges */}
+        <g clipPath="url(#glassNg)" filter="url(#glassSoftBlur)">
           {edges.map(([a, b]) => {
             const from = nodeMap[a];
             const to = nodeMap[b];
@@ -199,32 +298,99 @@ export default function NigeriaMap({
                 x2={to.x}
                 y2={to.y}
                 stroke="url(#glassWire)"
-                strokeWidth="1.25"
+                strokeWidth="1.4"
                 strokeLinecap="round"
+                opacity="0.85"
               />
             );
           })}
         </g>
 
+        {/* Nodes */}
         <g clipPath="url(#glassNg)">
-          {nodes.map((node, i) => (
-            <g key={node.id} className="glass-node origin-center">
-              <circle
-                cx={node.x}
-                cy={node.y}
-                r={i % 4 === 0 ? 10 : 7}
-                fill="rgba(255,255,255,0.18)"
-              />
-              <circle
-                cx={node.x}
-                cy={node.y}
-                r={i % 5 === 0 ? 4.6 : 3.3}
-                fill="url(#glassNode)"
-              />
-            </g>
-          ))}
+          {nodes.map((node) => {
+            const isHovered = hoveredNode === node.id;
+            const r = node.major ? 5.5 : 3.8;
+            const glowR = node.major ? 14 : 10;
+            return (
+              <g
+                key={node.id}
+                className="glass-node origin-center cursor-default"
+                onMouseEnter={() => interactive && setHoveredNode(node.id)}
+                onMouseLeave={() => setHoveredNode(null)}
+              >
+                {/* Pulse ring */}
+                {node.major && (
+                  <circle
+                    className="glass-pulse"
+                    cx={node.x}
+                    cy={node.y}
+                    r={glowR}
+                    fill="none"
+                    stroke="rgba(110,231,183,0.5)"
+                    strokeWidth="1"
+                    opacity="0.6"
+                  />
+                )}
+                {/* Glow halo */}
+                <circle
+                  cx={node.x}
+                  cy={node.y}
+                  r={isHovered ? glowR + 4 : glowR}
+                  fill={isHovered ? "rgba(110,231,183,0.25)" : "rgba(255,255,255,0.08)"}
+                  style={{ transition: "r 0.2s ease, fill 0.2s ease" }}
+                />
+                {/* Core dot */}
+                <circle
+                  cx={node.x}
+                  cy={node.y}
+                  r={isHovered ? r + 1.5 : r}
+                  fill={node.major ? "url(#glassNodeMajor)" : "url(#glassNode)"}
+                  filter="url(#glassGlow)"
+                  style={{ transition: "r 0.2s ease" }}
+                />
+                {/* Label on hover */}
+                {isHovered && (
+                  <g>
+                    <rect
+                      x={node.x - 36}
+                      y={node.y - 28}
+                      width="72"
+                      height="18"
+                      rx="6"
+                      fill="rgba(12,18,24,0.85)"
+                      stroke="rgba(255,255,255,0.2)"
+                      strokeWidth="0.5"
+                    />
+                    <text
+                      x={node.x}
+                      y={node.y - 16}
+                      textAnchor="middle"
+                      fill="white"
+                      fontSize="9"
+                      fontWeight="600"
+                      fontFamily="system-ui, sans-serif"
+                    >
+                      {node.label}
+                    </text>
+                  </g>
+                )}
+              </g>
+            );
+          })}
         </g>
       </svg>
+
+      {/* Live indicator */}
+      <div className="absolute bottom-5 left-5 z-[4] flex items-center gap-2 rounded-full bg-black/30 px-3 py-1.5 backdrop-blur-md">
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+        </span>
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-white/70">
+          Live network
+        </span>
+      </div>
     </div>
   );
 }

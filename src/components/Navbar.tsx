@@ -237,14 +237,14 @@ export default function Navbar() {
             {!user ? (
               <Link
                 href="/signup"
-                className="btn btn-primary hidden px-3.5 py-2 text-[13px] lg:inline-flex"
+                className="hidden rounded-full bg-forest px-3.5 py-2 text-[13px] font-semibold text-white shadow-[0_12px_32px_-12px_rgba(15,157,108,0.7)] transition hover:bg-forest-hover lg:inline-flex lg:items-center"
               >
                 Get started
               </Link>
             ) : (
               <Link
                 href={homeForRole(user.role)}
-                className="btn btn-primary hidden px-3.5 py-2 text-[13px] lg:inline-flex"
+                className="hidden rounded-full bg-forest px-3.5 py-2 text-[13px] font-semibold text-white shadow-[0_12px_32px_-12px_rgba(15,157,108,0.7)] transition hover:bg-forest-hover lg:inline-flex lg:items-center"
               >
                 Open portal
               </Link>

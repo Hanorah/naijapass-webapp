@@ -88,6 +88,29 @@ function friendlyAuthError(message: string) {
   return message;
 }
 
+/** Let signInWithPassword release the auth lock before other Supabase calls. */
+function releaseAuthLock() {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, 75);
+  });
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => resolve(fallback), ms);
+    void promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        window.clearTimeout(timer);
+        resolve(fallback);
+      },
+    );
+  });
+}
+
 function toRole(value: unknown): Role {
   return (ROLES as readonly string[]).includes(String(value))
     ? (value as Role)
@@ -165,19 +188,29 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
       if (!user) return null;
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select(PROFILE_COLUMNS)
-        .eq("id", user.id)
-        .maybeSingle();
+      try {
+        const query = supabase
+          .from("profiles")
+          .select(PROFILE_COLUMNS)
+          .eq("id", user.id)
+          .maybeSingle();
 
-      if (error || !data) {
-        // Auth exists but profile row is missing / blocked — keep portal roles
-        // from email/metadata so govt officers are not downgraded to individual.
+        const { data, error } = await withTimeout(
+          query,
+          8000,
+          { data: null, error: { message: "Profile load timed out" } } as Awaited<
+            typeof query
+          >,
+        );
+
+        if (error || !data) {
+          return fallbackUserFromAuth(user);
+        }
+
+        return profileToSessionUser(data as ProfileRow);
+      } catch {
         return fallbackUserFromAuth(user);
       }
-
-      return profileToSessionUser(data as ProfileRow);
     },
     [supabase],
   );
@@ -430,8 +463,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
 
       // Pass data.user into loadProfile — do not call getUser() here.
-      // signInWithPassword holds the auth lock; getUser() during that window
-      // can hang forever (button stuck on "Signing in…").
+      // signInWithPassword holds the auth lock; other auth/DB calls in that
+      // window can hang forever (button stuck on "Signing in…").
       const { data: authData, error } = await supabase.auth.signInWithPassword({
         email: normalized,
         password,
@@ -447,12 +480,24 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         };
       }
 
-      const profile = await loadProfile(authData.user);
-      setUser(profile);
+      await releaseAuthLock();
+
+      const profile = await withTimeout(
+        loadProfile(authData.user),
+        8000,
+        null,
+      );
+      const sessionUser = profile ?? fallbackUserFromAuth(authData.user);
+      setUser(sessionUser);
+
+      // Finish hydrating the real profile in the background if we timed out.
       if (!profile) {
-        return { user: null, needsKyc: false, error: "Could not load your profile." };
+        void loadProfile(authData.user).then((full) => {
+          if (full) setUser(full);
+        });
       }
-      if (profile.accountStatus === "suspended") {
+
+      if (sessionUser.accountStatus === "suspended") {
         await supabase.auth.signOut();
         setUser(null);
         return {
@@ -461,16 +506,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           error: "This account is suspended. Contact the portal administrator.",
         };
       }
-      if (!profile.verified) {
+
+      const needsKyc = profile ? !profile.verified : false;
+      if (needsKyc) {
         setPending({
-          name: profile.name,
-          email: profile.email,
-          phone: profile.phone,
-          state: profile.state,
-          role: profile.role === "business" ? "business" : "individual",
+          name: sessionUser.name,
+          email: sessionUser.email,
+          phone: sessionUser.phone,
+          state: sessionUser.state,
+          role: sessionUser.role === "business" ? "business" : "individual",
         });
       }
-      return { user: profile, needsKyc: !profile.verified };
+      return { user: sessionUser, needsKyc };
     },
     [supabase, loadProfile],
   );

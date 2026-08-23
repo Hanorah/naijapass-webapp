@@ -81,7 +81,7 @@ export default function GovtSignInForm() {
           ? `Signed in for ${result.user.govtState}.`
           : "Signed in.",
       );
-      router.push(safeReturnPath(next, "/govt"));
+      window.location.assign(safeReturnPath(next, "/govt"));
     } finally {
       setBusy(false);
     }

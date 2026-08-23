@@ -42,9 +42,16 @@ export async function proxy(request: NextRequest) {
   });
 
   // Always call getUser() — it is what refreshes an expiring session cookie.
-  const {
+  let {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // Soft fallback: some edge runtimes briefly miss a just-set cookie JWT
+  // while the session cookie is already present.
+  if (!user && needsGuard) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    user = sessionData.session?.user ?? null;
+  }
 
   if (!needsGuard) return response;
 

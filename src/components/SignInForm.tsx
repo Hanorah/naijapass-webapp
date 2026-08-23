@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import toast from "react-hot-toast";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
@@ -16,7 +16,6 @@ import {
 } from "@/lib/returnUrl";
 
 export default function SignInForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next");
   const { signIn, signOut, live } = useSession();
@@ -34,7 +33,20 @@ export default function SignInForm() {
 
     setBusy(true);
     try {
-      const result = await signIn(email, password);
+      const result = await Promise.race([
+        signIn(email, password),
+        new Promise<never>((_, reject) =>
+          window.setTimeout(
+            () =>
+              reject(
+                new Error(
+                  "Sign-in timed out. Check your connection and try again.",
+                ),
+              ),
+            20000,
+          ),
+        ),
+      ]);
 
       if (result.error) {
         toast.error(result.error);
@@ -43,27 +55,32 @@ export default function SignInForm() {
       if (result.user?.role === "admin") {
         await signOut();
         toast.error("Admin accounts use the admin console sign-in.");
-        router.push("/admin/signin");
+        window.location.assign("/admin/signin");
         return;
       }
       if (result.user?.role === "govt") {
-        // A state account wandered into the citizen sign-in; send it home.
         toast.success("Opening your state portal.");
-        router.push("/govt");
+        window.location.assign("/govt");
         return;
       }
       if (result.needsKyc) {
         toast.success("Continue verification to open your portal.");
-        router.push(kycUrl(safeReturnPath(next)));
+        window.location.assign(kycUrl(safeReturnPath(next)));
         return;
       }
       if (result.user) {
         toast.success(`Signed in as ${result.user.role}.`);
         const home = homeForRole(result.user.role);
-        router.push(next ? safeReturnPath(next, home) : home);
+        // Full page load so middleware/proxy reads the auth cookies. Soft
+        // client navigations were bouncing State Hub back to /signin.
+        window.location.assign(next ? safeReturnPath(next, home) : home);
         return;
       }
       toast.error("No account found. Register as an individual or business first.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Sign-in failed. Try again.",
+      );
     } finally {
       setBusy(false);
     }

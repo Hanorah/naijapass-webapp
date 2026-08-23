@@ -93,7 +93,7 @@ export default function AdminSignInForm() {
       }
 
       toast.success("Welcome back.");
-      router.push(safeReturnPath(next, "/admin"));
+      window.location.assign(safeReturnPath(next, "/admin"));
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Sign-in failed. Try again.";

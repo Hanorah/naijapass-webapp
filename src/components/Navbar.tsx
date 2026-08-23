@@ -95,6 +95,54 @@ export default function Navbar() {
         >
           <NaijaPassMark size="lg" className="shrink-0" />
 
+          {/* Mobile: location in the bar (where Get started used to sit) */}
+          <div className="relative min-w-0 justify-self-center lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMenu((m) => (m === "state" ? null : "state"))}
+              aria-haspopup="listbox"
+              aria-expanded={menu === "state"}
+              className={`inline-flex max-w-[min(42vw,11rem)] items-center gap-1 rounded-full px-2.5 py-1.5 text-[12px] font-medium transition sm:max-w-[12rem] sm:gap-1.5 ${
+                glass
+                  ? "bg-white/10 text-white hover:bg-white/18"
+                  : "bg-[#f4f6f8] text-navy hover:bg-orange-soft"
+              }`}
+            >
+              <Crosshair className="h-3.5 w-3.5 shrink-0 opacity-70" />
+              <span className="min-w-0 truncate font-semibold">{selectedState}</span>
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" />
+            </button>
+            {menu === "state" && (
+              <div className="absolute left-1/2 z-50 mt-2 w-[min(18rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-2xl border border-navy/8 bg-white shadow-xl">
+                <ul
+                  role="listbox"
+                  className="no-scrollbar max-h-72 overflow-y-auto py-1"
+                >
+                  {["All States", ...nigerianStates].map((s) => (
+                    <li key={s}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={selectedState === s}
+                        onClick={() => {
+                          setSelectedState(s);
+                          setMenu(null);
+                        }}
+                        className={`w-full px-3 py-2.5 text-left text-sm ${
+                          selectedState === s
+                            ? "bg-orange-soft font-semibold text-forest"
+                            : "text-navy hover:bg-mist"
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
           <nav
             className="hidden min-w-0 items-center justify-center gap-0.5 overflow-hidden lg:flex"
             aria-label="Primary"
@@ -112,7 +160,7 @@ export default function Navbar() {
           </nav>
 
           <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-1.5">
-            <div className="relative hidden md:block">
+            <div className="relative hidden lg:block">
               <button
                 type="button"
                 onClick={() => setMenu((m) => (m === "state" ? null : "state"))}
@@ -275,27 +323,6 @@ export default function Navbar() {
                 </Link>
               );
             })}
-          </div>
-
-          <div className="mt-8 rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/35">
-              Viewing state
-            </p>
-            <label className="relative mt-3 block">
-              <Crosshair className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-              <select
-                value={selectedState}
-                onChange={(e) => setSelectedState(e.target.value)}
-                className="w-full appearance-none rounded-2xl border border-white/12 bg-white/8 py-3.5 pl-10 pr-10 text-sm font-semibold text-white outline-none"
-              >
-                {["All States", ...nigerianStates].map((s) => (
-                  <option key={s} value={s} className="bg-navy-deep text-navy">
-                    {s}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-            </label>
           </div>
 
           <div className="mt-auto space-y-3 pt-10">

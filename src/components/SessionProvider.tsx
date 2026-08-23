@@ -189,7 +189,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (!user) return null;
 
       try {
-        const result = await withTimeout(
+        let timedOut = false;
+        const result = await Promise.race([
           Promise.resolve(
             supabase
               .from("profiles")
@@ -197,17 +198,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
               .eq("id", user.id)
               .maybeSingle(),
           ),
-          8000,
-          {
-            data: null,
-            error: { message: "Profile load timed out" },
-          } as {
-            data: ProfileRow | null;
-            error: { message: string } | null;
-          },
-        );
+          new Promise<null>((resolve) => {
+            window.setTimeout(() => {
+              timedOut = true;
+              resolve(null);
+            }, 8000);
+          }),
+        ]);
 
-        if (result.error || !result.data) {
+        if (timedOut || !result || result.error || !result.data) {
           return fallbackUserFromAuth(user);
         }
 

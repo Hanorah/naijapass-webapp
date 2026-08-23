@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRef } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { gsap, useGSAP } from "@/lib/gsap";
+import { PEXELS_BUSINESS, PEXELS_GOVT } from "@/lib/pexelsImages";
 
 export default function SplitAudience() {
   const root = useRef<HTMLElement>(null);
@@ -37,8 +38,8 @@ export default function SplitAudience() {
       <div className="mx-auto grid max-w-7xl overflow-hidden rounded-[32px] lg:grid-cols-2">
         <article className="split-card group relative min-h-[480px] overflow-hidden md:min-h-[560px]">
           <Image
-            src="https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=1600&q=80"
-            alt="Construction site in Nigeria"
+            src={PEXELS_BUSINESS}
+            alt="Construction and civic work in Nigeria"
             fill
             className="object-cover transition duration-700 group-hover:scale-105"
             sizes="(max-width: 1024px) 100vw, 50vw"
@@ -67,8 +68,8 @@ export default function SplitAudience() {
 
         <article className="split-card group relative min-h-[480px] overflow-hidden md:min-h-[560px]">
           <Image
-            src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1600&q=80"
-            alt="Government building"
+            src={PEXELS_GOVT}
+            alt="Government and civic skyline in Nigeria"
             fill
             className="object-cover transition duration-700 group-hover:scale-105"
             sizes="(max-width: 1024px) 100vw, 50vw"

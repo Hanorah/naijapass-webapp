@@ -23,7 +23,8 @@ import {
   type TenderStatus,
 } from "@/lib/db/types";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { formatNaira } from "@/data/federalTenders";
+import { federalTenders, formatNaira } from "@/data/federalTenders";
+import { normalizeDashboardState } from "@/lib/dashboardState";
 
 const SECTORS = [
   "Infrastructure",
@@ -71,8 +72,38 @@ function emptyDraft(state: string): Draft {
   };
 }
 
+function seedTendersForState(state: string): TenderRow[] {
+  if (!state) return [];
+  const normalized = normalizeDashboardState(state);
+  return federalTenders
+    .filter((t) => t.state && normalizeDashboardState(t.state) === normalized)
+    .map((t) => ({
+      id: `seed-${t.reference}`,
+      title: t.title,
+      reference: t.reference,
+      mda: t.mda,
+      state: t.state ?? state,
+      sector: t.sector,
+      value: t.value,
+      currency: "NGN",
+      deadline: t.deadline,
+      status: t.status as TenderStatus,
+      description: null,
+      source: "catalogue",
+      published_at: null,
+      lga: null,
+      contact_email: null,
+      document_url: null,
+      submitted_by: null,
+      publisher_type: "govt" as const,
+      business_id: null,
+      created_at: new Date().toISOString(),
+    }));
+}
+
 async function fetchTenders(state: string): Promise<TenderRow[]> {
-  if (!isSupabaseConfigured() || !state) return [];
+  if (!state) return [];
+  if (!isSupabaseConfigured()) return seedTendersForState(state);
 
   const supabase = createClient();
   const { data, error } = await supabase
@@ -83,9 +114,16 @@ async function fetchTenders(state: string): Promise<TenderRow[]> {
 
   if (error) {
     toast.error(error.message);
-    return [];
+    return seedTendersForState(state);
   }
-  return (data ?? []) as TenderRow[];
+  const rows = (data ?? []) as TenderRow[];
+  if (!rows.length) return seedTendersForState(state);
+
+  const seen = new Set(rows.map((r) => (r.reference ?? r.id).toLowerCase()));
+  const extras = seedTendersForState(state).filter(
+    (r) => !seen.has((r.reference ?? r.id).toLowerCase()),
+  );
+  return [...rows, ...extras];
 }
 
 function draftFrom(row: TenderRow): Draft {
@@ -169,7 +207,8 @@ export default function GovtTendersManager() {
     setSaving(true);
     try {
       const supabase = createClient();
-      const { error } = draft.id
+      const isSeed = Boolean(draft.id?.startsWith("seed-"));
+      const { error } = draft.id && !isSeed
         ? await supabase.from("tenders").update(row).eq("id", draft.id)
         : await supabase.from("tenders").insert(row);
 
@@ -191,6 +230,10 @@ export default function GovtTendersManager() {
   };
 
   const onDelete = async (row: TenderRow) => {
+    if (row.id.startsWith("seed-")) {
+      toast.error("Catalogue samples cannot be deleted — publish your own tender instead.");
+      return;
+    }
     if (!window.confirm(`Remove "${row.title}"?`)) return;
     const supabase = createClient();
     const { error } = await supabase.from("tenders").delete().eq("id", row.id);
@@ -227,11 +270,11 @@ export default function GovtTendersManager() {
       />
 
       {loading ? (
-        <p className="text-sm text-white/40">Loading tenders…</p>
+        <p className="text-sm text-slate">Loading tenders…</p>
       ) : tenders.length ? (
-        <div className="overflow-hidden rounded-2xl border border-white/10">
+        <div className="overflow-hidden rounded-2xl border border-navy/8">
           <table className="w-full min-w-[48rem] text-left text-sm">
-            <thead className="bg-white/[0.03] text-xs uppercase tracking-wide text-white/40">
+            <thead className="bg-navy/[0.02] text-xs uppercase tracking-wide text-slate">
               <tr>
                 <th className="px-4 py-3 font-semibold">Tender</th>
                 <th className="px-4 py-3 font-semibold">Sector</th>
@@ -241,20 +284,20 @@ export default function GovtTendersManager() {
                 <th className="px-4 py-3 text-right font-semibold">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/8 bg-[#0e1628]">
+            <tbody className="divide-y divide-navy/8 bg-white">
               {tenders.map((row) => (
                 <tr key={row.id}>
                   <td className="max-w-xs px-4 py-3">
-                    <p className="truncate font-semibold text-white/90">{row.title}</p>
-                    <p className="truncate text-xs text-white/35">
+                    <p className="truncate font-semibold text-navy">{row.title}</p>
+                    <p className="truncate text-xs text-slate">
                       {row.reference ?? "No reference"} · {row.mda ?? state}
                     </p>
                   </td>
-                  <td className="px-4 py-3 text-white/60">{row.sector ?? "—"}</td>
-                  <td className="px-4 py-3 text-white/60">
+                  <td className="px-4 py-3 text-slate">{row.sector ?? "—"}</td>
+                  <td className="px-4 py-3 text-slate">
                     {row.value ? formatNaira(Number(row.value)) : "—"}
                   </td>
-                  <td className="px-4 py-3 text-white/60">
+                  <td className="px-4 py-3 text-slate">
                     {row.deadline
                       ? new Date(row.deadline).toLocaleDateString("en-NG", {
                           day: "numeric",
@@ -272,7 +315,7 @@ export default function GovtTendersManager() {
                         type="button"
                         onClick={() => setDraft(draftFrom(row))}
                         title="Edit"
-                        className="rounded-lg p-2 text-white/40 hover:bg-white/5 hover:text-white"
+                        className="rounded-lg p-2 text-slate hover:bg-navy/[0.04] hover:text-navy"
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
@@ -280,7 +323,7 @@ export default function GovtTendersManager() {
                         type="button"
                         onClick={() => void onDelete(row)}
                         title="Delete"
-                        className="rounded-lg p-2 text-white/40 hover:bg-red-400/10 hover:text-red-300"
+                        className="rounded-lg p-2 text-slate hover:bg-red-50 hover:text-red-600"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -422,7 +465,7 @@ export default function GovtTendersManager() {
               </Field>
             </div>
 
-            <div className="flex justify-end gap-3 border-t border-white/10 pt-4">
+            <div className="flex justify-end gap-3 border-t border-navy/8 pt-4">
               <GhostButton onClick={() => setDraft(null)}>Cancel</GhostButton>
               <PrimaryButton type="submit" disabled={saving}>
                 {saving ? "Saving…" : draft.id ? "Save changes" : "Publish tender"}

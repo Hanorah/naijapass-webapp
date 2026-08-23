@@ -207,30 +207,30 @@ export default function GovtUpdatesManager() {
       </Panel>
 
       {loading ? (
-        <p className="text-sm text-white/40">Loading…</p>
+        <p className="text-sm text-slate">Loading…</p>
       ) : visible.length ? (
         <ul className="space-y-2">
           {visible.map((row) => (
             <li
               key={row.id}
-              className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-white/10 bg-[#0e1628] px-4 py-3.5"
+              className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-navy/8 bg-white px-4 py-3.5"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <Pill tone="blue">{STATE_CONTENT_LABELS[row.type]}</Pill>
                   {!row.published ? <Pill tone="amber">Unpublished</Pill> : null}
                   {row.category ? (
-                    <span className="text-xs text-white/35">{row.category}</span>
+                    <span className="text-xs text-slate">{row.category}</span>
                   ) : null}
                 </div>
-                <p className="mt-2 text-sm font-semibold text-white/90">{row.title}</p>
+                <p className="mt-2 text-sm font-semibold text-navy">{row.title}</p>
                 {row.body ? (
-                  <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-white/45">
+                  <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-slate">
                     {row.body}
                   </p>
                 ) : null}
                 {row.phone || row.contact ? (
-                  <p className="mt-1.5 text-xs text-white/35">
+                  <p className="mt-1.5 text-xs text-slate">
                     {[row.contact, row.phone].filter(Boolean).join(" · ")}
                   </p>
                 ) : null}
@@ -241,7 +241,7 @@ export default function GovtUpdatesManager() {
                   type="button"
                   onClick={() => void onTogglePublished(row)}
                   title={row.published ? "Hide from citizens" : "Publish"}
-                  className="rounded-lg p-2 text-white/40 hover:bg-white/5 hover:text-white"
+                  className="rounded-lg p-2 text-slate hover:bg-navy/[0.04] hover:text-navy"
                 >
                   {row.published ? (
                     <Eye className="h-4 w-4" />
@@ -253,7 +253,7 @@ export default function GovtUpdatesManager() {
                   type="button"
                   onClick={() => setDraft(draftFrom(row))}
                   title="Edit"
-                  className="rounded-lg p-2 text-white/40 hover:bg-white/5 hover:text-white"
+                  className="rounded-lg p-2 text-slate hover:bg-navy/[0.04] hover:text-navy"
                 >
                   <Pencil className="h-4 w-4" />
                 </button>
@@ -261,7 +261,7 @@ export default function GovtUpdatesManager() {
                   type="button"
                   onClick={() => void onDelete(row)}
                   title="Delete"
-                  className="rounded-lg p-2 text-white/40 hover:bg-red-400/10 hover:text-red-300"
+                  className="rounded-lg p-2 text-slate hover:bg-red-50 hover:text-red-600"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -372,7 +372,7 @@ export default function GovtUpdatesManager() {
               />
             </Field>
 
-            <label className="flex items-center gap-2.5 text-sm text-white/70">
+            <label className="flex items-center gap-2.5 text-sm text-navy/70">
               <input
                 type="checkbox"
                 checked={draft.published}
@@ -382,7 +382,7 @@ export default function GovtUpdatesManager() {
               Visible to citizens and businesses
             </label>
 
-            <div className="flex justify-end gap-3 border-t border-white/10 pt-4">
+            <div className="flex justify-end gap-3 border-t border-navy/8 pt-4">
               <GhostButton onClick={() => setDraft(null)}>Cancel</GhostButton>
               <PrimaryButton type="submit" disabled={saving}>
                 {saving ? "Saving…" : draft.id ? "Save changes" : "Publish"}
@@ -410,8 +410,8 @@ function FilterChip({
       onClick={onClick}
       className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
         active
-          ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
-          : "border-white/10 text-white/50 hover:bg-white/5 hover:text-white"
+          ? "border-emerald-400/30 bg-emerald-400/10 text-forest"
+          : "border-navy/8 text-slate hover:bg-navy/[0.04] hover:text-navy"
       }`}
     >
       {label}

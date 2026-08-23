@@ -351,6 +351,14 @@ insert into public.projects (
   ('NP-YOB-AGRI', 'Geidam Agricultural Equipment Hub', 'Industry', 'Geidam Agricultural Equipment Hub is a industry project in Geidam, Yobe. Contractor: Yobe Agricultural Dev Co. Supervising agency: Yobe Ministry of Agri. Status: Completed. Source: Yobe Press Release.', 1300000000, '₦1.3B', 'Yobe', 'Geidam', 'Completed', 'Yobe Agricultural Dev Co', 15, false, 'current', 'Yobe Ministry of Agri', 'Yobe Press Release', true),
   ('NP-YOB-HOSP', 'Potiskum Specialist Hospital Upgrade', 'Health', 'Potiskum Specialist Hospital Upgrade is a health project in Potiskum, Yobe. Contractor: Al-Buraq Nigeria Ltd. Supervising agency: Yobe Ministry of Health. Status: In Progress. Source: Yobe Budget Office.', 1600000000, '₦1.6B', 'Yobe', 'Potiskum', 'In Progress', 'Al-Buraq Nigeria Ltd', 25, true, 'current', 'Yobe Ministry of Health', 'Yobe Budget Office', true);
 
+-- Ensure every seeded project is publicly visible (covers older DBs where
+-- review_status was added later without a backfill).
+update public.projects
+set published = true,
+    review_status = 'published'
+where published is distinct from true
+   or review_status is distinct from 'published';
+
 insert into public.field_reports (
   id, project_id, title, time_label, body, location, status,
   author, likes, image_url, verified

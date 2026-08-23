@@ -2,21 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { projects as seedProjects } from "@/data/projects";
+import { normalizeDashboardState } from "@/lib/dashboardState";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import {
   PROJECT_COLUMNS,
   rowToProject,
   type LiveProject,
   type ProjectRow,
+  type ReviewStatus,
 } from "@/lib/db/types";
 
-/** Where the projects on screen came from. Drives the "live" badge in the UI. */
-export type ProjectSource = "loading" | "database" | "seed";
+/** Where the projects on screen came from. */
+export type ProjectSource = "loading" | "database" | "seed" | "mixed";
 
 const seedAsLive: LiveProject[] = seedProjects.map((project) => ({
   ...project,
   published: true,
-  reviewStatus: "published",
+  reviewStatus: "published" as const,
 }));
 
 type Options = {
@@ -26,49 +28,109 @@ type Options = {
   includeDrafts?: boolean;
 };
 
-type Result = { rows: LiveProject[] | null; error: string | null };
+type Result = { rows: LiveProject[]; error: string | null };
+
+function sameState(a: string, b: string) {
+  return normalizeDashboardState(a) === normalizeDashboardState(b);
+}
+
+function seedForState(state?: string) {
+  if (!state) return seedAsLive;
+  return seedAsLive.filter((project) => sameState(project.state, state));
+}
+
+/** Prefer database rows; keep seed rows whose ids are not already in the DB. */
+function mergeProjects(db: LiveProject[], seed: LiveProject[]) {
+  const seen = new Set(db.map((project) => project.id));
+  return [...db, ...seed.filter((project) => !seen.has(project.id))];
+}
+
+function mapRows(data: ProjectRow[] | null): LiveProject[] {
+  return (data ?? []).map((row) => {
+    const project = rowToProject(row);
+    const reviewStatus = (row.review_status || "published") as ReviewStatus;
+    return {
+      ...project,
+      reviewStatus,
+      published: row.published ?? reviewStatus === "published",
+      state: normalizeDashboardState(project.state),
+    };
+  });
+}
 
 async function fetchProjects({ state, includeDrafts }: Options): Promise<Result> {
   const supabase = createClient();
   let query = supabase
     .from("projects")
     .select(PROJECT_COLUMNS)
-    .order("updated_at", { ascending: false });
+    .order("updated_at", { ascending: false })
+    .limit(5000);
 
+  if (!includeDrafts) {
+    query = query.eq("review_status", "published").eq("published", true);
+  }
+
+  // Prefer exact match on the canonical state name; fall back to a broad
+  // fetch + client filter so older rows with odd casing still appear.
   if (state) query = query.eq("state", state);
-  if (!includeDrafts) query = query.eq("review_status", "published");
 
   const { data, error } = await query;
-  if (error) return { rows: null, error: error.message };
+  if (error) return { rows: [], error: error.message };
 
-  const rows = (data ?? []) as ProjectRow[];
-  // No rows means schema.sql ran but seed.sql did not — fall back to the seed
-  // rather than showing an empty portal.
-  return { rows: rows.length ? rows.map(rowToProject) : null, error: null };
+  let rows = mapRows(data as ProjectRow[] | null);
+
+  // If the exact eq matched nothing (legacy casing), pull published rows and filter.
+  if (state && rows.length === 0) {
+    let retry = supabase
+      .from("projects")
+      .select(PROJECT_COLUMNS)
+      .order("updated_at", { ascending: false })
+      .limit(5000);
+    if (!includeDrafts) {
+      retry = retry.eq("review_status", "published").eq("published", true);
+    }
+    const second = await retry;
+    if (!second.error) {
+      rows = mapRows(second.data as ProjectRow[] | null).filter((project) =>
+        sameState(project.state, state),
+      );
+    }
+  } else if (state) {
+    rows = rows.filter((project) => sameState(project.state, state));
+  }
+
+  return { rows, error: null };
 }
 
 /**
- * Reads projects from Supabase, falling back to the bundled seed so every
- * public page still renders before the database is populated.
+ * Reads projects from Supabase and always merges in catalogue rows for the
+ * same state so the portal never looks empty when seed.sql has not run yet
+ * (or only partially imported).
  */
 export function useProjects(options: Options = {}) {
   const { state, includeDrafts = false } = options;
-  const [rows, setRows] = useState<LiveProject[] | null>(null);
+  const normalizedState = state?.trim()
+    ? normalizeDashboardState(state)
+    : undefined;
+  const [dbRows, setDbRows] = useState<LiveProject[] | null>(null);
   const [settled, setSettled] = useState(!isSupabaseConfigured());
   const [error, setError] = useState<string | null>(null);
 
   const fallback = useMemo(
-    () => (state ? seedAsLive.filter((project) => project.state === state) : seedAsLive),
-    [state],
+    () => seedForState(normalizedState),
+    [normalizedState],
   );
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured()) return;
-    const result = await fetchProjects({ state, includeDrafts });
-    setRows(result.rows);
+    const result = await fetchProjects({
+      state: normalizedState,
+      includeDrafts,
+    });
+    setDbRows(result.rows);
     setError(result.error);
     setSettled(true);
-  }, [state, includeDrafts]);
+  }, [normalizedState, includeDrafts]);
 
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
@@ -76,21 +138,53 @@ export function useProjects(options: Options = {}) {
     let active = true;
 
     void (async () => {
-      const result = await fetchProjects({ state, includeDrafts });
+      const result = await fetchProjects({
+        state: normalizedState,
+        includeDrafts,
+      });
       if (!active) return;
-      setRows(result.rows);
+      setDbRows(result.rows);
       setError(result.error);
       setSettled(true);
     })();
 
+    const supabase = createClient();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      void (async () => {
+        const result = await fetchProjects({
+          state: normalizedState,
+          includeDrafts,
+        });
+        if (!active) return;
+        setDbRows(result.rows);
+        setError(result.error);
+        setSettled(true);
+      })();
+    });
+
     return () => {
       active = false;
+      subscription.unsubscribe();
     };
-  }, [state, includeDrafts]);
+  }, [normalizedState, includeDrafts]);
 
-  const source: ProjectSource = rows ? "database" : settled ? "seed" : "loading";
+  const projects = useMemo(() => {
+    if (!isSupabaseConfigured()) return fallback;
+    if (dbRows === null) return fallback;
+    return mergeProjects(dbRows, fallback);
+  }, [dbRows, fallback]);
 
-  return { projects: rows ?? fallback, source, error, reload: load };
+  const source: ProjectSource = !settled
+    ? "loading"
+    : !dbRows?.length
+      ? "seed"
+      : dbRows.length < projects.length
+        ? "mixed"
+        : "database";
+
+  return { projects, source, error, reload: load };
 }
 
 /** Single project by id, with the same seed fallback. */
@@ -117,7 +211,7 @@ export function useProject(id: string | undefined) {
         .maybeSingle();
 
       if (!active) return;
-      setRow(data ? rowToProject(data as ProjectRow) : null);
+      setRow(data ? mapRows([data as ProjectRow])[0] ?? null : null);
       setLoading(false);
     })();
 

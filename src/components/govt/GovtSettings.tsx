@@ -102,10 +102,10 @@ export default function GovtSettings() {
       <Panel>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="font-display text-base font-bold text-white">
+            <h2 className="font-display text-base font-bold text-navy">
               Account
             </h2>
-            <p className="mt-1 text-sm text-white/45">{user?.email}</p>
+            <p className="mt-1 text-sm text-slate">{user?.email}</p>
           </div>
           <div className="flex items-center gap-2">
             <Pill tone="green">
@@ -116,7 +116,7 @@ export default function GovtSettings() {
           </div>
         </div>
 
-        <p className="mt-4 rounded-xl border border-white/8 bg-white/[0.02] p-3 text-xs leading-relaxed text-white/40">
+        <p className="mt-4 rounded-xl border border-navy/8 bg-navy/[0.02] p-3 text-xs leading-relaxed text-slate">
           This account is permanently scoped to {state}. The database rejects
           any attempt to publish for another state, so a mistake here cannot
           affect another government. Only the portal administrator can change
@@ -125,10 +125,10 @@ export default function GovtSettings() {
       </Panel>
 
       <Panel>
-        <h2 className="font-display text-base font-bold text-white">
+        <h2 className="font-display text-base font-bold text-navy">
           Office details
         </h2>
-        <p className="mt-1 text-sm text-white/45">
+        <p className="mt-1 text-sm text-slate">
           Shown to citizens next to the projects and notices you publish.
         </p>
 
@@ -168,11 +168,11 @@ export default function GovtSettings() {
       </Panel>
 
       <Panel>
-        <h2 className="flex items-center gap-2 font-display text-base font-bold text-white">
-          <KeyRound className="h-4 w-4 text-emerald-300" />
+        <h2 className="flex items-center gap-2 font-display text-base font-bold text-navy">
+          <KeyRound className="h-4 w-4 text-forest" />
           Change password
         </h2>
-        <p className="mt-1 text-sm text-white/45">
+        <p className="mt-1 text-sm text-slate">
           Change the password you were issued the first time you sign in.
         </p>
 

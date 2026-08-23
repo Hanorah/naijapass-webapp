@@ -1,4 +1,5 @@
 import { getProjectById, projects as seedProjects } from "@/data/projects";
+import { normalizeDashboardState } from "@/lib/dashboardState";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import {
@@ -7,12 +8,43 @@ import {
   rowToProject,
   type LiveProject,
   type ProjectRow,
+  type ReviewStatus,
   type StateContentRow,
 } from "@/lib/db/types";
 
 function seedAsLive(id: string): LiveProject | null {
   const seed = getProjectById(id);
   return seed ? { ...seed, published: true, reviewStatus: "published" } : null;
+}
+
+function sameState(a: string, b: string) {
+  return normalizeDashboardState(a) === normalizeDashboardState(b);
+}
+
+function seedForState(state: string): LiveProject[] {
+  return seedProjects
+    .filter((project) => sameState(project.state, state))
+    .map((project) => ({
+      ...project,
+      published: true,
+      reviewStatus: "published" as const,
+    }));
+}
+
+function mergeById(db: LiveProject[], seed: LiveProject[]) {
+  const seen = new Set(db.map((project) => project.id));
+  return [...db, ...seed.filter((project) => !seen.has(project.id))];
+}
+
+function mapRow(row: ProjectRow): LiveProject {
+  const project = rowToProject(row);
+  const reviewStatus = (row.review_status || "published") as ReviewStatus;
+  return {
+    ...project,
+    reviewStatus,
+    published: row.published ?? reviewStatus === "published",
+    state: normalizeDashboardState(project.state),
+  };
 }
 
 /**
@@ -31,7 +63,7 @@ export async function fetchProject(id: string): Promise<LiveProject | null> {
       .eq("id", id)
       .maybeSingle();
 
-    return data ? rowToProject(data as ProjectRow) : seedAsLive(id);
+    return data ? mapRow(data as ProjectRow) : seedAsLive(id);
   } catch {
     return seedAsLive(id);
   }
@@ -39,13 +71,8 @@ export async function fetchProject(id: string): Promise<LiveProject | null> {
 
 /** Published projects for a state, used by server-rendered state pages. */
 export async function fetchProjectsByState(state: string): Promise<LiveProject[]> {
-  const fallback = seedProjects
-    .filter((project) => project.state === state)
-    .map((project) => ({
-      ...project,
-      published: true,
-      reviewStatus: "published" as const,
-    }));
+  const canonical = normalizeDashboardState(state);
+  const fallback = seedForState(canonical);
 
   if (!isSupabaseConfigured()) return fallback;
 
@@ -54,12 +81,17 @@ export async function fetchProjectsByState(state: string): Promise<LiveProject[]
     const { data } = await supabase
       .from("projects")
       .select(PROJECT_COLUMNS)
-      .eq("state", state)
       .eq("review_status", "published")
-      .order("updated_at", { ascending: false });
+      .eq("published", true)
+      .order("updated_at", { ascending: false })
+      .limit(5000);
 
-    const rows = (data ?? []) as ProjectRow[];
-    return rows.length ? rows.map(rowToProject) : fallback;
+    const rows = ((data ?? []) as ProjectRow[])
+      .map(mapRow)
+      .filter((project) => sameState(project.state, canonical));
+
+    if (!rows.length) return fallback;
+    return mergeById(rows, fallback);
   } catch {
     return fallback;
   }

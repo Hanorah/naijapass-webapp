@@ -15,6 +15,7 @@ import {
   Users,
   Wrench,
 } from "lucide-react";
+import { PEXELS_DEFAULT } from "@/lib/pexelsImages";
 
 export type ProfileView = {
   id: string;
@@ -48,9 +49,7 @@ export default function BusinessProfile({
   backLabel?: string;
   actions?: React.ReactNode;
 }) {
-  const image =
-    profile.image ||
-    "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1600&q=80";
+  const image = profile.image || PEXELS_DEFAULT;
 
   return (
     <div>

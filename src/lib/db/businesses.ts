@@ -8,6 +8,7 @@ import {
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { BUSINESSES_CHANGED_EVENT } from "@/lib/db/businessEvents";
 import { normalizeDashboardState } from "@/lib/dashboardState";
+import { pexelsImageForKey } from "@/lib/pexelsImages";
 
 export type BusinessSource = "loading" | "database" | "seed";
 
@@ -36,7 +37,9 @@ type BusinessRow = {
 const BUSINESS_COLUMNS =
   "id, name, category, subcategory, state, lga, address, phone, email, website, description, verified, rating, review_count, status, services, image_url, year_founded, employees";
 
-function rowToBusiness(row: BusinessRow): Business {
+export type LiveBusiness = Business & { listingStatus?: string };
+
+function rowToBusiness(row: BusinessRow): LiveBusiness {
   return {
     id: row.id,
     name: row.name,
@@ -53,25 +56,29 @@ function rowToBusiness(row: BusinessRow): Business {
     pos: false,
     tags: row.services ?? [],
     phone: row.phone ?? "",
-    image: row.image_url ?? "",
+    image: row.image_url || pexelsImageForKey(row.id),
     description: row.description ?? undefined,
     email: row.email ?? undefined,
     website: row.website ?? undefined,
     services: row.services ?? undefined,
     yearFounded: row.year_founded ?? undefined,
     employees: row.employees ?? undefined,
+    listingStatus: row.status,
   };
 }
 
-async function fetchAllBusinesses() {
+async function fetchAllBusinesses(liveOnly = true) {
   const supabase = createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("businesses")
     .select(BUSINESS_COLUMNS)
-    .eq("status", "live")
     .order("updated_at", { ascending: false });
 
-  if (error) return { rows: null as Business[] | null, error: error.message };
+  if (liveOnly) query = query.eq("status", "live");
+
+  const { data, error } = await query;
+
+  if (error) return { rows: null as LiveBusiness[] | null, error: error.message };
 
   const rows = (data ?? []) as BusinessRow[];
   return { rows: rows.map(rowToBusiness), error: null };
@@ -85,7 +92,7 @@ async function fetchBusinessById(id: string) {
     .eq("id", id)
     .maybeSingle();
 
-  if (error) return { business: null as Business | null, error: error.message };
+  if (error) return { business: null as LiveBusiness | null, error: error.message };
   if (!data) return { business: null, error: null };
   return { business: rowToBusiness(data as BusinessRow), error: null };
 }
@@ -129,24 +136,28 @@ export function useBusinessProfile(id: string) {
 }
 
 
-export function useBusinesses(state?: string) {
-  const [dbRows, setDbRows] = useState<Business[] | null>(null);
+export function useBusinesses(
+  state?: string,
+  options: { includeAllStatuses?: boolean } = {},
+) {
+  const includeAllStatuses = options.includeAllStatuses ?? false;
+  const [dbRows, setDbRows] = useState<LiveBusiness[] | null>(null);
   const [settled, setSettled] = useState(!isSupabaseConfigured());
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured()) return;
-    const result = await fetchAllBusinesses();
+    const result = await fetchAllBusinesses(!includeAllStatuses);
     setDbRows(result.rows);
     setError(result.error);
     setSettled(true);
-  }, []);
+  }, [includeAllStatuses]);
 
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
     let active = true;
     void (async () => {
-      const result = await fetchAllBusinesses();
+      const result = await fetchAllBusinesses(!includeAllStatuses);
       if (!active) return;
       setDbRows(result.rows);
       setError(result.error);
@@ -162,7 +173,7 @@ export function useBusinesses(state?: string) {
       active = false;
       window.removeEventListener(BUSINESSES_CHANGED_EVENT, onChanged);
     };
-  }, [load]);
+  }, [load, includeAllStatuses]);
 
   const allBusinesses = useMemo(() => {
     if (!isSupabaseConfigured()) return [];

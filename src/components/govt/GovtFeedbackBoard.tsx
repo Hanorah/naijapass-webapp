@@ -119,13 +119,13 @@ export default function GovtFeedbackBoard() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-white/40">Loading feedback…</p>
+        <p className="text-sm text-slate">Loading feedback…</p>
       ) : rows.length ? (
         <ul className="space-y-2">
           {rows.map((row) => (
             <li
               key={row.id}
-              className="rounded-2xl border border-white/10 bg-[#0e1628] px-4 py-4"
+              className="rounded-2xl border border-navy/8 bg-white px-4 py-4"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -133,18 +133,18 @@ export default function GovtFeedbackBoard() {
                     <Rating value={row.rating} />
                     {row.visibility === "hidden" ? <Pill tone="amber">Hidden</Pill> : null}
                     {row.topic ? (
-                      <span className="text-xs text-white/35">{row.topic}</span>
+                      <span className="text-xs text-slate">{row.topic}</span>
                     ) : null}
                   </div>
                   <Link
                     href={projectDetailPath(row.project_id)}
                     target="_blank"
-                    className="mt-2 block truncate text-sm font-semibold text-emerald-300 hover:text-emerald-200"
+                    className="mt-2 block truncate text-sm font-semibold text-forest hover:text-forest-hover"
                   >
                     {projectTitles.get(row.project_id) ?? row.project_id}
                   </Link>
-                  <p className="mt-1.5 text-sm leading-relaxed text-white/60">{row.body}</p>
-                  <p className="mt-2 text-xs text-white/30">
+                  <p className="mt-1.5 text-sm leading-relaxed text-slate">{row.body}</p>
+                  <p className="mt-2 text-xs text-slate/60">
                     {row.user_name ?? "Verified citizen"} ·{" "}
                     {new Date(row.created_at).toLocaleDateString("en-NG", {
                       day: "numeric",
@@ -158,7 +158,7 @@ export default function GovtFeedbackBoard() {
                   type="button"
                   onClick={() => void onToggleVisibility(row)}
                   title={row.visibility === "public" ? "Hide" : "Restore"}
-                  className="rounded-lg p-2 text-white/40 hover:bg-white/5 hover:text-white"
+                  className="rounded-lg p-2 text-slate hover:bg-navy/[0.04] hover:text-navy"
                 >
                   {row.visibility === "public" ? (
                     <Eye className="h-4 w-4" />
@@ -189,7 +189,7 @@ function Rating({ value }: { value: number }) {
         <Star
           key={step}
           className={`h-3.5 w-3.5 ${
-            step <= value ? "fill-amber-400 text-amber-400" : "text-white/15"
+            step <= value ? "fill-amber-400 text-amber-400" : "text-navy/15"
           }`}
         />
       ))}

@@ -1,11 +1,27 @@
 /** Shared state key — must match siteState.tsx so navbar and dashboard stay in sync. */
+import { nigerianStates } from "@/data/states";
+
 export const DASHBOARD_STATE_KEY = "naijapass.selectedState.v2";
 
+/**
+ * Canonical state name used everywhere (DB filters, portal scoping, hub).
+ * Case-insensitive and strips a trailing "State".
+ */
 export function normalizeDashboardState(raw: string): string {
   const cleaned = raw.trim();
   if (!cleaned || /^all\s*states?$/i.test(cleaned)) return "Lagos";
   if (/abuja|fct|federal capital/i.test(cleaned)) return "FCT";
-  return cleaned.replace(/\s+state$/i, "");
+
+  const stripped = cleaned.replace(/\s+state$/i, "").trim();
+  const exact = nigerianStates.find(
+    (state) => state.toLowerCase() === stripped.toLowerCase(),
+  );
+  if (exact) return exact;
+
+  const startsWith = nigerianStates.find((state) =>
+    stripped.toLowerCase().startsWith(state.toLowerCase()),
+  );
+  return startsWith ?? stripped;
 }
 
 export function readCachedDashboardState(): string | null {

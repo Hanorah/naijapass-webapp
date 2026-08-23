@@ -67,7 +67,7 @@ export const businesses: Business[] = [
     yearFounded: "1977",
     employees: "800+",
     image:
-      "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80",
+      "/pexels-daggash-farhan-1851897902-30220079.jpg",
   },
   {
     id: "radisson-blu",
@@ -86,7 +86,7 @@ export const businesses: Business[] = [
     tags: ["POS", "Free Wi-Fi", "Pool"],
     phone: "+234 201 277 1100",
     image:
-      "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=1200&q=80",
+      "/pexels-daggash-farhan-1851897902-30220079.jpg",
   },
   {
     id: "lagoon-hospital",
@@ -105,7 +105,7 @@ export const businesses: Business[] = [
     tags: ["POS", "Emergency", "Pharmacy"],
     phone: "+234 201 271 1000",
     image:
-      "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=1200&q=80",
+      "/pexels-daggash-farhan-1851897902-30220079.jpg",
   },
   {
     id: "palms-mall",
@@ -124,7 +124,7 @@ export const businesses: Business[] = [
     tags: ["POS", "Parking", "Food Court"],
     phone: "+234 201 270 0001",
     image:
-      "https://images.unsplash.com/photo-1519567241046-7f0346c72a4d?auto=format&fit=crop&w=1200&q=80",
+      "/pexels-shotbywrz-734724649-18431682.jpg",
   },
   {
     id: "pwc-lagos",
@@ -143,7 +143,7 @@ export const businesses: Business[] = [
     tags: ["Advisory", "Tax", "Audit"],
     phone: "+234 201 271 1700",
     image:
-      "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80",
+      "/pexels-meshack-emmanuel-kazanshyi-1267432081-29832529.jpg",
   },
   {
     id: "ikeja-city-mall",
@@ -162,7 +162,7 @@ export const businesses: Business[] = [
     tags: ["POS", "Cinema", "Free Wi-Fi"],
     phone: "+234 201 460 0000",
     image:
-      "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80",
+      "/pexels-shotbywrz-734724649-18431669.jpg",
   },
   {
     id: "eko-hotel",
@@ -181,7 +181,7 @@ export const businesses: Business[] = [
     tags: ["POS", "Conference", "Beach"],
     phone: "+234 201 277 7000",
     image:
-      "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1200&q=80",
+      "/pexels-shotbywrz-734724649-18431682.jpg",
   },
   {
     id: "redemption-camp-clinic",
@@ -200,7 +200,7 @@ export const businesses: Business[] = [
     tags: ["POS", "Lab", "Delivery"],
     phone: "+234 201 280 1260",
     image:
-      "https://images.unsplash.com/photo-1586773860418-d37222d8fce3?auto=format&fit=crop&w=1200&q=80",
+      "/pexels-harrun-muhammad-116282236-33806113.jpg",
   },
   {
     id: "abuja-continental",
@@ -225,7 +225,7 @@ export const businesses: Business[] = [
     yearFounded: "1987",
     employees: "900+",
     image:
-      "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80",
+      "/pexels-harrun-muhammad-116282236-33806113.jpg",
   },
   {
     id: "kano-city-clinic",
@@ -248,7 +248,7 @@ export const businesses: Business[] = [
     yearFounded: "1988",
     employees: "2,000+",
     image:
-      "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=1200&q=80",
+      "/pexels-shotbywrz-734724649-18431669.jpg",
   },
   {
     id: "ph-oil-services",
@@ -271,7 +271,7 @@ export const businesses: Business[] = [
     yearFounded: "2005",
     employees: "120+",
     image:
-      "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1200&q=80",
+      "/pexels-shotbywrz-734724649-18431669.jpg",
   },
   {
     id: "benin-legal-chambers",
@@ -294,7 +294,7 @@ export const businesses: Business[] = [
     yearFounded: "2012",
     employees: "25+",
     image:
-      "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&q=80",
+      "/pexels-daggash-farhan-1851897902-30220079.jpg",
   },
 ];
 

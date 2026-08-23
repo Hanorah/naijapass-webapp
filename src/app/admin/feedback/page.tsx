@@ -1,45 +1,118 @@
 "use client";
 
-import { projects } from "@/data/projects";
-import { getReportsForProject } from "@/data/projectFeedback";
+import { useMemo, useState } from "react";
+import toast from "react-hot-toast";
+import { useAdminFeedback } from "@/lib/db/adminFeedback";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
 export default function AdminFeedbackPage() {
-  const reports = projects.flatMap((p) => getReportsForProject(p.id));
+  const { items, loading, reload } = useAdminFeedback();
+  const [q, setQ] = useState("");
+  const [kind, setKind] = useState<"all" | "feedback" | "field_report">("all");
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return items.filter((r) => {
+      if (kind !== "all" && r.kind !== kind) return false;
+      if (!needle) return true;
+      return (
+        r.body.toLowerCase().includes(needle) ||
+        (r.topic ?? "").toLowerCase().includes(needle) ||
+        r.project_id.toLowerCase().includes(needle) ||
+        (r.user_name ?? "").toLowerCase().includes(needle)
+      );
+    });
+  }, [items, q, kind]);
+
+  const onToggle = async (id: string, visibility: "public" | "hidden") => {
+    if (!isSupabaseConfigured()) {
+      toast.error("Connect Supabase to moderate live feedback.");
+      return;
+    }
+    const next = visibility === "public" ? "hidden" : "public";
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("project_feedback")
+      .update({ visibility: next })
+      .eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(next === "hidden" ? "Hidden from public." : "Restored.");
+    await reload();
+  };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-serif text-3xl text-white">Feedback & reports</h1>
-        <p className="mt-1 text-sm text-white/50">
-          Field inspection reports linked to infrastructure projects.
+        <h1 className="font-serif text-3xl text-navy">Feedback & reports</h1>
+        <p className="mt-1 text-sm text-slate">
+          Citizen feedback and field inspection reports · {filtered.length} shown
+          {loading ? " · loading…" : ""}
         </p>
       </div>
 
+      <div className="flex flex-wrap gap-3">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search body, project, author…"
+          className="min-w-[220px] flex-1 rounded-xl border border-navy/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-forest/40"
+        />
+        <select
+          value={kind}
+          onChange={(e) => setKind(e.target.value as typeof kind)}
+          className="rounded-xl border border-navy/10 bg-white px-3 py-2.5 text-sm"
+        >
+          <option value="all">All types</option>
+          <option value="feedback">Citizen feedback</option>
+          <option value="field_report">Field reports</option>
+        </select>
+      </div>
+
       <div className="space-y-3">
-        {reports.map((r) => (
+        {filtered.map((r) => (
           <article
-            key={r.id}
-            className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+            key={`${r.kind}-${r.id}`}
+            className="rounded-2xl border border-navy/8 bg-white p-4 shadow-sm"
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="font-semibold text-white">{r.title}</p>
-                <p className="mt-1 text-xs text-white/40">
-                  {r.id} · {r.projectId} · {r.time}
+                <p className="font-semibold text-navy">
+                  {r.title || r.topic || "Citizen comment"}
+                  {r.rating > 0 ? ` · ${r.rating}/5` : ""}
+                </p>
+                <p className="mt-1 text-xs text-slate">
+                  {r.kind === "field_report" ? "Field report" : "Feedback"} ·{" "}
+                  {r.project_id} · {r.created_at}
                 </p>
               </div>
-              <span className="rounded-full bg-white/8 px-2 py-0.5 text-[11px] font-semibold text-white/75">
-                {r.status}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-navy/[0.05] px-2 py-0.5 text-[11px] font-semibold text-navy/75">
+                  {r.status || r.visibility}
+                </span>
+                {r.kind === "feedback" ? (
+                  <button
+                    type="button"
+                    onClick={() => void onToggle(r.id, r.visibility)}
+                    className="rounded-lg border border-navy/12 px-3 py-1.5 text-xs font-semibold text-navy/70 hover:bg-navy/[0.04]"
+                  >
+                    {r.visibility === "public" ? "Hide" : "Restore"}
+                  </button>
+                ) : null}
+              </div>
             </div>
-            <p className="mt-3 text-sm leading-relaxed text-white/65">{r.body}</p>
-            <p className="mt-3 text-xs text-white/40">
-              {r.location} · {r.author} · {r.likes} likes
+            <p className="mt-3 text-sm leading-relaxed text-navy/75">{r.body}</p>
+            <p className="mt-3 text-xs text-slate">
+              {[r.location, r.author || r.user_name || "Anonymous", r.user_email]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
           </article>
         ))}
-        {reports.length === 0 && (
-          <p className="text-sm text-white/45">No field reports yet.</p>
+        {filtered.length === 0 && (
+          <p className="text-sm text-slate">No feedback or reports yet.</p>
         )}
       </div>
     </div>

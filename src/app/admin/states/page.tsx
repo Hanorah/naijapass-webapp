@@ -17,7 +17,9 @@ type Row = {
 function tally(data: { state: string | null }[] | null) {
   const map = new Map<string, number>();
   for (const item of data ?? []) {
-    if (item.state) map.set(item.state, (map.get(item.state) ?? 0) + 1);
+    if (!item.state) continue;
+    const key = item.state.replace(/\s+state$/i, "").trim();
+    map.set(key, (map.get(key) ?? 0) + 1);
   }
   return map;
 }
@@ -138,11 +140,10 @@ export default function AdminStatesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl text-white">State governments</h1>
-          <p className="mt-1 text-sm text-white/50">
+          <h1 className="font-serif text-3xl text-navy">State governments</h1>
+          <p className="mt-1 text-sm text-slate">
             {provisioned} of {nigerianStates.length} states have a portal login.
-            Run <code className="rounded bg-white/5 px-1">supabase/govt-accounts.sql</code>{" "}
-            to create the rest.
+            Run the government account SQL to create the rest.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -150,7 +151,7 @@ export default function AdminStatesPage() {
             type="button"
             onClick={() => void onSeedStateHub()}
             disabled={seeding}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/12 px-4 py-2.5 text-sm font-semibold text-white/70 hover:bg-white/5 hover:text-white disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-navy/10 px-4 py-2.5 text-sm font-semibold text-navy/70 hover:bg-navy/[0.04] hover:text-navy disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${seeding ? "animate-spin" : ""}`} />
             {seeding ? "Seeding…" : "Seed State Hub content"}
@@ -158,37 +159,37 @@ export default function AdminStatesPage() {
           <button
             type="button"
             onClick={() => void load()}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/12 px-4 py-2.5 text-sm font-semibold text-white/70 hover:bg-white/5 hover:text-white"
+            className="inline-flex items-center gap-2 rounded-xl border border-navy/10 px-4 py-2.5 text-sm font-semibold text-navy/70 hover:bg-navy/[0.04] hover:text-navy"
           >
             Refresh
           </button>
         </div>
       </div>
 
-      <p className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-sm leading-relaxed text-white/45">
+      <p className="rounded-2xl border border-navy/8 bg-navy/[0.02] p-4 text-sm leading-relaxed text-slate">
         Each state signs in at{" "}
-        <code className="rounded bg-white/5 px-1">/govt/signin</code> with the
-        address <code className="rounded bg-white/5 px-1">state@govt.naijapass.ng</code>.
+        <code className="rounded bg-navy/[0.04] px-1">/govt/signin</code> with the
+        address <code className="rounded bg-navy/[0.04] px-1">state@govt.naijapass.ng</code>.
         Row level security in Postgres restricts every account to its own state,
         so suspending an account here is the only way to stop it publishing.
       </p>
 
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate/60" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search state or email…"
-          className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-9 pr-3 text-sm text-white outline-none placeholder:text-white/35 focus:border-emerald-400/40"
+          className="w-full rounded-xl border border-navy/8 bg-navy/[0.04] py-2.5 pl-9 pr-3 text-sm text-navy outline-none placeholder:text-slate focus:border-forest/40"
         />
       </div>
 
       {loading ? (
-        <p className="text-sm text-white/40">Loading state accounts…</p>
+        <p className="text-sm text-slate">Loading state accounts…</p>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-white/10">
+        <div className="overflow-x-auto rounded-2xl border border-navy/8">
           <table className="w-full min-w-[880px] text-left text-sm">
-            <thead className="bg-white/[0.04] text-xs uppercase tracking-wide text-white/45">
+            <thead className="bg-navy/[0.03] text-xs uppercase tracking-wide text-slate">
               <tr>
                 <th className="px-4 py-3 font-semibold">State</th>
                 <th className="px-4 py-3 font-semibold">Login</th>
@@ -200,38 +201,38 @@ export default function AdminStatesPage() {
             </thead>
             <tbody>
               {visible.map((row) => (
-                <tr key={row.state} className="border-t border-white/8 hover:bg-white/[0.02]">
+                <tr key={row.state} className="border-t border-navy/8 hover:bg-navy/[0.02]">
                   <td className="px-4 py-3">
-                    <p className="flex items-center gap-2 font-semibold text-white">
-                      <Landmark className="h-3.5 w-3.5 text-emerald-400/70" />
+                    <p className="flex items-center gap-2 font-semibold text-navy">
+                      <Landmark className="h-3.5 w-3.5 text-forest" />
                       {row.state}
                     </p>
                     {row.profile?.full_name ? (
-                      <p className="mt-0.5 text-xs text-white/35">
+                      <p className="mt-0.5 text-xs text-slate">
                         {row.profile.full_name}
                       </p>
                     ) : null}
                   </td>
-                  <td className="px-4 py-3 text-white/60">
+                  <td className="px-4 py-3 text-slate">
                     {row.profile?.email ?? (
-                      <span className="text-white/30">Not provisioned</span>
+                      <span className="text-slate/60">Not provisioned</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-white/70">{row.projects}</td>
-                  <td className="px-4 py-3 text-white/70">{row.content}</td>
+                  <td className="px-4 py-3 text-navy/70">{row.projects}</td>
+                  <td className="px-4 py-3 text-navy/70">{row.content}</td>
                   <td className="px-4 py-3">
                     {row.profile ? (
                       <span
                         className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                           row.profile.account_status === "active"
-                            ? "bg-emerald-400/15 text-emerald-300"
-                            : "bg-red-400/15 text-red-300"
+                            ? "bg-emerald-400/15 text-forest"
+                            : "bg-rose-50 text-rose-700"
                         }`}
                       >
                         {row.profile.account_status}
                       </span>
                     ) : (
-                      <span className="rounded-full bg-white/8 px-2 py-0.5 text-[11px] font-semibold text-white/50">
+                      <span className="rounded-full bg-navy/[0.06] px-2 py-0.5 text-[11px] font-semibold text-slate">
                         missing
                       </span>
                     )}
@@ -241,7 +242,7 @@ export default function AdminStatesPage() {
                       <button
                         type="button"
                         onClick={() => void onToggleStatus(row)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-white/12 px-3 py-1.5 text-xs font-semibold text-white/65 hover:bg-white/5 hover:text-white"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-navy/10 px-3 py-1.5 text-xs font-semibold text-navy/65 hover:bg-navy/[0.04] hover:text-navy"
                       >
                         {row.profile.account_status === "active" ? (
                           <>
@@ -256,7 +257,7 @@ export default function AdminStatesPage() {
                         )}
                       </button>
                     ) : (
-                      <span className="text-xs text-white/25">—</span>
+                      <span className="text-xs text-slate/50">—</span>
                     )}
                   </td>
                 </tr>

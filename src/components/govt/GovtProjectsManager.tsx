@@ -10,7 +10,6 @@ import {
   Field,
   GhostButton,
   Modal,
-  OfflineNotice,
   PageHeader,
   Panel,
   Pill,
@@ -92,10 +91,10 @@ function draftFrom(project: LiveProject): Draft {
 }
 
 export default function GovtProjectsManager() {
-  const { user, live } = useSession();
+  const { user } = useSession();
   const state = user?.govtState ?? user?.state ?? "";
 
-  const { projects, reload, source } = useProjects({ state, includeDrafts: true });
+  const { projects, reload } = useProjects({ state, includeDrafts: true });
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
@@ -162,9 +161,7 @@ export default function GovtProjectsManager() {
     setSaving(true);
     try {
       const supabase = createClient();
-      const { error } = draft.id
-        ? await supabase.from("projects").update(row).eq("id", draft.id)
-        : await supabase.from("projects").insert(row);
+      const { error } = await supabase.from("projects").upsert(row, { onConflict: "id" });
 
       if (error) {
         toast.error(
@@ -226,8 +223,6 @@ export default function GovtProjectsManager() {
 
   return (
     <div className="space-y-6">
-      {!live ? <OfflineNotice /> : null}
-
       <PageHeader
         title="Projects"
         description={`Every project you publish appears on the public map and in ${state || "your state"}'s project explorer within seconds.`}
@@ -241,7 +236,7 @@ export default function GovtProjectsManager() {
 
       <Panel className="flex flex-wrap items-center gap-3">
         <span className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate/60" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -261,44 +256,45 @@ export default function GovtProjectsManager() {
             </option>
           ))}
         </select>
-        <span className="text-xs text-white/35">
+        <span className="text-xs text-slate">
           {visible.length} of {projects.length}
         </span>
       </Panel>
 
-      {source === "seed" && live ? (
-        <p className="text-xs text-white/35">
-          These are bundled sample projects. The first project you publish is
-          written to your database and replaces this preview.
-        </p>
-      ) : null}
-
       {visible.length ? (
-        <div className="overflow-hidden rounded-2xl border border-white/10">
+        <div className="overflow-hidden rounded-2xl border border-navy/8">
           <table className="w-full min-w-[52rem] text-left text-sm">
-            <thead className="bg-white/[0.03] text-xs uppercase tracking-wide text-white/40">
+            <thead className="bg-navy/[0.02] text-xs uppercase tracking-wide text-slate">
               <tr>
                 <th className="px-4 py-3 font-semibold">Project</th>
                 <th className="px-4 py-3 font-semibold">LGA</th>
                 <th className="px-4 py-3 font-semibold">Budget</th>
+                <th className="px-4 py-3 font-semibold">Contractor</th>
                 <th className="px-4 py-3 font-semibold">Status</th>
                 <th className="px-4 py-3 font-semibold">Visibility</th>
                 <th className="px-4 py-3 text-right font-semibold">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/8 bg-[#0e1628]">
+            <tbody className="divide-y divide-navy/8 bg-white">
               {visible.map((project) => (
                 <tr key={project.id} className="align-middle">
                   <td className="max-w-xs px-4 py-3">
-                    <p className="truncate font-semibold text-white/90">
+                    <p className="truncate font-semibold text-navy">
                       {project.title}
                     </p>
-                    <p className="truncate text-xs text-white/35">
+                    <p className="truncate text-xs text-slate">
                       {project.id} · {project.category}
+                      {project.supervisingAgency
+                        ? ` · ${project.supervisingAgency}`
+                        : ""}
+                      {project.completion ? ` · ${project.completion}% done` : ""}
                     </p>
                   </td>
-                  <td className="px-4 py-3 text-white/60">{project.lga || "—"}</td>
-                  <td className="px-4 py-3 text-white/60">{project.budgetLabel}</td>
+                  <td className="px-4 py-3 text-slate">{project.lga || "—"}</td>
+                  <td className="px-4 py-3 text-slate">{project.budgetLabel}</td>
+                  <td className="max-w-[10rem] truncate px-4 py-3 text-slate">
+                    {project.contractor || "—"}
+                  </td>
                   <td className="px-4 py-3">
                     <Pill
                       tone={
@@ -331,7 +327,7 @@ export default function GovtProjectsManager() {
                         href={projectDetailPath(project.id)}
                         target="_blank"
                         title="View public page"
-                        className="rounded-lg p-2 text-white/40 hover:bg-white/5 hover:text-white"
+                        className="rounded-lg p-2 text-slate hover:bg-navy/[0.04] hover:text-navy"
                       >
                         <ExternalLink className="h-4 w-4" />
                       </Link>
@@ -339,7 +335,7 @@ export default function GovtProjectsManager() {
                         type="button"
                         onClick={() => setDraft(draftFrom(project))}
                         title="Edit"
-                        className="rounded-lg p-2 text-white/40 hover:bg-white/5 hover:text-white"
+                        className="rounded-lg p-2 text-slate hover:bg-navy/[0.04] hover:text-navy"
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
@@ -347,7 +343,7 @@ export default function GovtProjectsManager() {
                         type="button"
                         onClick={() => void onDelete(project)}
                         title="Delete"
-                        className="rounded-lg p-2 text-white/40 hover:bg-red-400/10 hover:text-red-300"
+                        className="rounded-lg p-2 text-slate hover:bg-red-50 hover:text-red-600"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -520,7 +516,7 @@ export default function GovtProjectsManager() {
               </select>
             </Field>
 
-            <div className="flex justify-end gap-3 border-t border-white/10 pt-4">
+            <div className="flex justify-end gap-3 border-t border-navy/8 pt-4">
               <GhostButton onClick={() => setDraft(null)}>Cancel</GhostButton>
               <PrimaryButton type="submit" disabled={saving}>
                 {saving

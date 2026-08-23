@@ -62,7 +62,7 @@ export const marketplaceLgas: Record<string, string[]> = {
 };
 
 const defaultImage =
-  "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1400&q=80";
+  "/pexels-meshack-emmanuel-kazanshyi-1267432081-29832529.jpg";
 
 export const seedMarketplaceListings: MarketplaceListing[] = [
   {
@@ -87,7 +87,7 @@ export const seedMarketplaceListings: MarketplaceListing[] = [
     website: "https://www.julius-berger.com",
     websiteMode: "url",
     image:
-      "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=1400&q=80",
+      "/pexels-harrun-muhammad-116282236-33806113.jpg",
     services: ["Highways", "Bridges", "Building construction", "Project management"],
     yearFounded: "1970",
     employees: "5,000+",
@@ -110,7 +110,7 @@ export const seedMarketplaceListings: MarketplaceListing[] = [
     phone: "+234 700 444 4444",
     websiteMode: "request-build",
     image:
-      "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1400&q=80",
+      "/pexels-shotbywrz-734724649-18431682.jpg",
     services: ["Freight", "Warehousing", "Last-mile delivery"],
     yearFounded: "2006",
     employees: "1,000+",
@@ -156,7 +156,7 @@ export const seedMarketplaceListings: MarketplaceListing[] = [
     phone: "+234 9 291 4000",
     websiteMode: "none",
     image:
-      "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=1400&q=80",
+      "/pexels-daggash-farhan-1851897902-30220079.jpg",
     services: ["Rail", "Civil works", "Urban infrastructure"],
     yearFounded: "1981",
     employees: "2,000+",
@@ -182,7 +182,7 @@ export const seedMarketplaceListings: MarketplaceListing[] = [
     website: "https://andela.com",
     websiteMode: "url",
     image:
-      "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1400&q=80",
+      "/pexels-daggash-farhan-1851897902-30220079.jpg",
     services: ["Software engineering", "Cloud", "Product teams"],
     yearFounded: "2014",
     employees: "500+",
@@ -205,7 +205,7 @@ export const seedMarketplaceListings: MarketplaceListing[] = [
     website: "https://www.redstarplc.com",
     websiteMode: "url",
     image:
-      "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?auto=format&fit=crop&w=1400&q=80",
+      "/pexels-shotbywrz-734724649-18431682.jpg",
     services: ["Courier", "Express freight", "Mailroom"],
     yearFounded: "1992",
     employees: "2,500+",
@@ -230,7 +230,7 @@ export const seedMarketplaceListings: MarketplaceListing[] = [
     website: "https://www.systemspecs.com.ng",
     websiteMode: "url",
     image:
-      "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1400&q=80",
+      "/pexels-meshack-emmanuel-kazanshyi-1267432081-29832529.jpg",
     services: ["Payments", "ERP", "GovTech"],
     yearFounded: "1991",
     employees: "300+",
@@ -251,7 +251,7 @@ export const seedMarketplaceListings: MarketplaceListing[] = [
     description: "Bulk freight and port haulage supporting industrial and public projects.",
     websiteMode: "request-build",
     image:
-      "https://images.unsplash.com/photo-1578574577315-52ac17530bd3?auto=format&fit=crop&w=1400&q=80",
+      "/pexels-daggash-farhan-1851897902-30220079.jpg",
     services: ["Port haulage", "Bulk freight", "Fleet"],
     yearFounded: "2010",
     employees: "1,500+",
@@ -274,7 +274,7 @@ export const seedMarketplaceListings: MarketplaceListing[] = [
     phone: "+234 803 200 1100",
     websiteMode: "request-build",
     image:
-      "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1400&q=80",
+      "/pexels-shotbywrz-734724649-18431669.jpg",
     services: ["Roads", "Drainage", "Asphalt"],
     yearFounded: "2008",
     employees: "220+",
@@ -298,7 +298,7 @@ export const seedMarketplaceListings: MarketplaceListing[] = [
     website: "https://example.com",
     websiteMode: "url",
     image:
-      "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1400&q=80",
+      "/pexels-harrun-muhammad-116282236-33806113.jpg",
     services: ["GovTech", "Mobile apps", "Data platforms"],
     yearFounded: "2016",
     employees: "80+",
@@ -320,7 +320,7 @@ export const seedMarketplaceListings: MarketplaceListing[] = [
     phone: "+234 803 900 4400",
     websiteMode: "request-build",
     image:
-      "https://images.unsplash.com/photo-1494412574643-ff11b0a5c1c3?auto=format&fit=crop&w=1400&q=80",
+      "/pexels-shotbywrz-734724649-18431682.jpg",
     services: ["Port haulage", "Barge", "Warehousing"],
     yearFounded: "2004",
     employees: "350+",
@@ -342,7 +342,7 @@ export const seedMarketplaceListings: MarketplaceListing[] = [
     phone: "+234 805 112 7788",
     websiteMode: "none",
     image:
-      "https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&w=1400&q=80",
+      "/pexels-harrun-muhammad-116282236-33806113.jpg",
     services: ["Fabrication", "Welding", "Structural steel"],
     yearFounded: "1999",
     employees: "160+",
@@ -365,7 +365,7 @@ export const seedMarketplaceListings: MarketplaceListing[] = [
     phone: "+234 802 555 0190",
     websiteMode: "request-build",
     image:
-      "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=1400&q=80",
+      "/pexels-harrun-muhammad-116282236-33806113.jpg",
     services: ["Public buildings", "Retrofits", "Fit-out"],
     yearFounded: "2011",
     employees: "190+",
@@ -387,7 +387,7 @@ export const seedMarketplaceListings: MarketplaceListing[] = [
     phone: "+234 807 330 2211",
     websiteMode: "none",
     image:
-      "https://images.unsplash.com/photo-1601584115197-04ecc1da4384?auto=format&fit=crop&w=1400&q=80",
+      "/pexels-harrun-muhammad-116282236-33806113.jpg",
     services: ["Plant hire", "Tippers", "Crew transport"],
     yearFounded: "2013",
     employees: "95+",

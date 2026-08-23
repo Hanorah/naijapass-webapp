@@ -100,7 +100,7 @@ export default function Hero() {
         </p>
         <h1 className="hero-title mt-5 font-display text-[clamp(2.6rem,7vw,5.2rem)] font-semibold leading-[1.02] tracking-[-0.04em] text-white">
           Government work,{" "}
-          <em className="font-serif font-normal italic text-white">without wahala.</em>
+          <em className="font-serif font-normal italic text-white">without stress.</em>
         </h1>
         <p className="hero-sub mx-auto mt-6 max-w-lg text-[16px] leading-relaxed text-white/75 md:text-[17px]">
           Browse open tenders, find verified contractors, and get your state&apos;s

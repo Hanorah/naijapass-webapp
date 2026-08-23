@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, Bot, Database, FolderCheck, Gavel, Map, ShieldCheck } from "lucide-react";
+import { PEXELS_DEFAULT } from "@/lib/pexelsImages";
 
 export const metadata: Metadata = {
   title: "About Us",
@@ -32,8 +33,8 @@ export default function AboutPage() {
     <div className="bg-white">
       <section className="dark-canvas relative -mt-20 isolate overflow-hidden text-white">
         <Image
-          src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=2400&q=80"
-          alt="Large-scale construction site at dusk"
+          src={PEXELS_DEFAULT}
+          alt="Nigerian cityscape and civic infrastructure"
           fill
           priority
           className="object-cover object-center opacity-50"

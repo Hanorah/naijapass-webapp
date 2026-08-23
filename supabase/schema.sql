@@ -101,7 +101,7 @@ security definer
 set search_path = public
 as $$
   select target_state is not null
-     and target_state = public.current_govt_state();
+     and lower(trim(target_state)) = lower(trim(public.current_govt_state()));
 $$;
 
 -- Reads through projects' own RLS, so policies on child tables can ask
@@ -509,10 +509,11 @@ create policy "profiles_admin_all" on public.profiles
   for all using (public.is_admin());
 
 -- Projects (public read published; admin write; state officers write own state)
+-- coalesce(review_status) so older seeded rows with NULL are still visible.
 drop policy if exists "projects_public_read" on public.projects;
 create policy "projects_public_read" on public.projects
   for select using (
-    (published = true and review_status = 'published')
+    (published = true and coalesce(review_status, 'published') = 'published')
     or public.is_admin()
     or public.is_govt_for(state)
   );

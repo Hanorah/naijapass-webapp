@@ -40,25 +40,59 @@ export default function GovtShell({ children }: { children: ReactNode }) {
   const { user, ready, signOut } = useSession();
   const [open, setOpen] = useState(false);
 
+  const allowed = Boolean(
+    user && (user.role === "govt" || user.role === "admin"),
+  );
+
   useEffect(() => {
     if (!ready) return;
     if (!user) {
       router.replace(`/govt/signin?next=${encodeURIComponent(pathname)}`);
       return;
     }
-    if (user.role !== "govt" && user.role !== "admin") {
+    if (!allowed) {
       router.replace("/dashboard");
     }
-  }, [ready, user, router, pathname]);
+  }, [ready, user, allowed, router, pathname]);
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
-  if (!ready || !user || (user.role !== "govt" && user.role !== "admin")) {
+  if (!ready) {
     return (
-      <div className="flex min-h-dvh flex-1 items-center justify-center bg-white text-slate">
-        Checking state portal access…
+      <div className="flex min-h-dvh flex-1 flex-col items-center justify-center gap-3 bg-white px-6 text-center text-slate">
+        <p className="text-sm">Opening state portal…</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex min-h-dvh flex-1 flex-col items-center justify-center gap-4 bg-white px-6 text-center">
+        <p className="text-sm text-slate">Sign in with your state government account.</p>
+        <Link
+          href={`/govt/signin?next=${encodeURIComponent(pathname)}`}
+          className="rounded-xl bg-forest px-4 py-2.5 text-sm font-semibold text-white hover:bg-forest-hover"
+        >
+          Go to state sign-in
+        </Link>
+      </div>
+    );
+  }
+
+  if (!allowed) {
+    return (
+      <div className="flex min-h-dvh flex-1 flex-col items-center justify-center gap-4 bg-white px-6 text-center">
+        <p className="text-sm text-slate">
+          This account is not a state government login.
+        </p>
+        <Link
+          href="/govt/signin"
+          className="rounded-xl bg-forest px-4 py-2.5 text-sm font-semibold text-white hover:bg-forest-hover"
+        >
+          Use a state portal account
+        </Link>
       </div>
     );
   }

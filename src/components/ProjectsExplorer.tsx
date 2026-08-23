@@ -21,7 +21,7 @@ import {
   type Project,
   type ProjectStatus,
 } from "@/data/projects";
-import { useSiteState } from "@/lib/siteState";
+import { useSiteState, projectMatchesState } from "@/lib/siteState";
 import { useProjects } from "@/lib/db/projects";
 
 const PAGE_SIZE = 6;
@@ -76,7 +76,7 @@ export default function ProjectsExplorer() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return projects.filter((p) => {
-      if (state !== "All States" && p.state !== state) return false;
+      if (!projectMatchesState(p.state, state)) return false;
       if (lga && p.lga !== lga) return false;
       if (q) {
         const hay = `${p.title} ${p.id} ${p.contractor} ${p.state}`.toLowerCase();

@@ -47,8 +47,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${jakarta.variable} ${newsreader.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-white font-sans text-foreground antialiased">
+      <body
+        className="min-h-full flex flex-col bg-white font-sans text-foreground antialiased"
+        suppressHydrationWarning
+      >
         <Providers>
           <AppShell>{children}</AppShell>
         </Providers>

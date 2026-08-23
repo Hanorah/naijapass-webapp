@@ -5,7 +5,6 @@ import { projects as seedProjects } from "@/data/projects";
 import { normalizeDashboardState } from "@/lib/dashboardState";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import {
-  PROJECT_COLUMNS,
   rowToProject,
   type LiveProject,
   type ProjectRow,
@@ -14,6 +13,10 @@ import {
 
 /** Where the projects on screen came from. */
 export type ProjectSource = "loading" | "database" | "seed" | "mixed";
+
+/** Safe column list — avoids hard-failing if a newer column is missing. */
+const SELECT_COLUMNS =
+  "id, title, category, description, budget_ngn, budget_label, state, lga, status, contractor, completion, reports_count, featured, era, supervising_agency, source_title, source_url, image_url, notes, published, review_status, start_date, expected_completion, submitted_by, created_at, updated_at";
 
 const seedAsLive: LiveProject[] = seedProjects.map((project) => ({
   ...project,
@@ -39,73 +42,85 @@ function seedForState(state?: string) {
   return seedAsLive.filter((project) => sameState(project.state, state));
 }
 
-/** Prefer database rows; keep seed rows whose ids are not already in the DB. */
 function mergeProjects(db: LiveProject[], seed: LiveProject[]) {
   const seen = new Set(db.map((project) => project.id));
   return [...db, ...seed.filter((project) => !seen.has(project.id))];
 }
 
+function isVisiblePublished(project: LiveProject) {
+  const status = project.reviewStatus || "published";
+  return project.published !== false && status === "published";
+}
+
 function mapRows(data: ProjectRow[] | null): LiveProject[] {
   return (data ?? []).map((row) => {
-    const project = rowToProject(row);
-    const reviewStatus = (row.review_status || "published") as ReviewStatus;
+    const project = rowToProject({
+      ...row,
+      // Older seeds / partial imports often leave review_status null.
+      review_status: (row.review_status || "published") as ReviewStatus,
+      published: row.published ?? true,
+    });
     return {
       ...project,
-      reviewStatus,
-      published: row.published ?? reviewStatus === "published",
-      state: normalizeDashboardState(project.state),
+      state: normalizeDashboardState(project.state || ""),
     };
   });
 }
 
 async function fetchProjects({ state, includeDrafts }: Options): Promise<Result> {
   const supabase = createClient();
+
+  // Do not filter review_status in SQL — null/missing values are common after
+  // seed and would hide every row. Visibility is applied client-side instead.
   let query = supabase
     .from("projects")
-    .select(PROJECT_COLUMNS)
+    .select(SELECT_COLUMNS)
     .order("updated_at", { ascending: false })
     .limit(5000);
 
-  if (!includeDrafts) {
-    query = query.eq("review_status", "published").eq("published", true);
-  }
-
-  // Prefer exact match on the canonical state name; fall back to a broad
-  // fetch + client filter so older rows with odd casing still appear.
-  if (state) query = query.eq("state", state);
-
   const { data, error } = await query;
-  if (error) return { rows: [], error: error.message };
 
-  let rows = mapRows(data as ProjectRow[] | null);
-
-  // If the exact eq matched nothing (legacy casing), pull published rows and filter.
-  if (state && rows.length === 0) {
-    let retry = supabase
+  if (error) {
+    // Retry with a minimal column set if the schema is behind the app.
+    const retry = await supabase
       .from("projects")
-      .select(PROJECT_COLUMNS)
+      .select(
+        "id, title, category, description, budget_ngn, budget_label, state, lga, status, contractor, completion, reports_count, featured, era, supervising_agency, source_title, published, created_at, updated_at",
+      )
       .order("updated_at", { ascending: false })
       .limit(5000);
-    if (!includeDrafts) {
-      retry = retry.eq("review_status", "published").eq("published", true);
+
+    if (retry.error) {
+      return { rows: [], error: retry.error.message || error.message };
     }
-    const second = await retry;
-    if (!second.error) {
-      rows = mapRows(second.data as ProjectRow[] | null).filter((project) =>
-        sameState(project.state, state),
-      );
-    }
-  } else if (state) {
-    rows = rows.filter((project) => sameState(project.state, state));
+
+    let rows = mapRows(
+      (retry.data ?? []).map((row) => ({
+        ...(row as ProjectRow),
+        review_status: "published" as ReviewStatus,
+        source_url: null,
+        image_url: null,
+        notes: null,
+        start_date: null,
+        expected_completion: null,
+        submitted_by: null,
+      })),
+    );
+
+    if (!includeDrafts) rows = rows.filter(isVisiblePublished);
+    if (state) rows = rows.filter((project) => sameState(project.state, state));
+    return { rows, error: null };
   }
 
+  let rows = mapRows(data as ProjectRow[] | null);
+  if (!includeDrafts) rows = rows.filter(isVisiblePublished);
+  if (state) rows = rows.filter((project) => sameState(project.state, state));
   return { rows, error: null };
 }
 
 /**
- * Reads projects from Supabase and always merges in catalogue rows for the
- * same state so the portal never looks empty when seed.sql has not run yet
- * (or only partially imported).
+ * Reads projects from Supabase and merges catalogue rows for the same scope
+ * so a portal never looks empty when only part of the DB is populated.
  */
 export function useProjects(options: Options = {}) {
   const { state, includeDrafts = false } = options;
@@ -151,7 +166,8 @@ export function useProjects(options: Options = {}) {
     const supabase = createClient();
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "TOKEN_REFRESHED") return;
       void (async () => {
         const result = await fetchProjects({
           state: normalizedState,
@@ -206,7 +222,7 @@ export function useProject(id: string | undefined) {
       const supabase = createClient();
       const { data } = await supabase
         .from("projects")
-        .select(PROJECT_COLUMNS)
+        .select(SELECT_COLUMNS)
         .eq("id", id)
         .maybeSingle();
 

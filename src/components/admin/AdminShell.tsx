@@ -43,25 +43,41 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   const { user, ready, signOut } = useSession();
   const [open, setOpen] = useState(false);
 
+  const allowed = user?.role === "admin";
+
   useEffect(() => {
     if (!ready) return;
     if (!user) {
       router.replace(`/signin?next=${encodeURIComponent(pathname)}`);
       return;
     }
-    if (user.role !== "admin") {
+    if (!allowed) {
       router.replace("/dashboard");
     }
-  }, [ready, user, router, pathname]);
+  }, [ready, user, allowed, router, pathname]);
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
-  if (!ready || !user || user.role !== "admin") {
+  if (!ready) {
     return (
-      <div className="flex min-h-dvh flex-1 items-center justify-center bg-white text-slate">
-        Checking admin access…
+      <div className="flex min-h-dvh flex-1 items-center justify-center bg-white text-sm text-slate">
+        Opening admin console…
+      </div>
+    );
+  }
+
+  if (!user || !allowed) {
+    return (
+      <div className="flex min-h-dvh flex-1 flex-col items-center justify-center gap-4 bg-white px-6 text-center">
+        <p className="text-sm text-slate">Admin sign-in required.</p>
+        <Link
+          href={`/signin?next=${encodeURIComponent(pathname)}`}
+          className="rounded-xl bg-forest px-4 py-2.5 text-sm font-semibold text-white hover:bg-forest-hover"
+        >
+          Sign in
+        </Link>
       </div>
     );
   }

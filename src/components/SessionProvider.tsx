@@ -14,6 +14,7 @@ import {
   PENDING_KEY,
   PROFILE_COLUMNS,
   PROJECT_FEEDBACK_KEY,
+  ROLES,
   SESSION_KEY,
   demoUserForEmail,
   findStoredUser,
@@ -24,6 +25,7 @@ import {
   writeJson,
   type PendingRegistration,
   type ProfileRow,
+  type Role,
   type SessionUser,
   type SubmitProjectFeedbackInput,
   type UserProjectFeedback,
@@ -35,6 +37,8 @@ import {
 import { mergeBids, readBids, upsertBid, writeBids, type TenderBid } from "@/lib/bids";
 import { dbBidToTenderBid } from "@/lib/db/procurement";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { nigerianStates } from "@/data/states";
+import type { User as AuthUser } from "@supabase/supabase-js";
 
 export type AuthResult = {
   user: SessionUser | null;
@@ -84,6 +88,55 @@ function friendlyAuthError(message: string) {
   return message;
 }
 
+function toRole(value: unknown): Role {
+  return (ROLES as readonly string[]).includes(String(value))
+    ? (value as Role)
+    : "individual";
+}
+
+/** lagos@govt.naijapass.ng → Lagos */
+function govtStateFromEmail(email: string): string | undefined {
+  const match = email.trim().toLowerCase().match(/^([a-z0-9]+)@govt\.naijapass\.ng$/);
+  if (!match) return undefined;
+  const local = match[1];
+  return nigerianStates.find(
+    (state) => state.toLowerCase().replace(/[\s-]/g, "") === local,
+  );
+}
+
+function fallbackUserFromAuth(authUser: AuthUser): SessionUser {
+  const email = authUser.email ?? "";
+  const meta = authUser.user_metadata ?? {};
+  const fromEmail = govtStateFromEmail(email);
+  const metaRole = toRole(meta.role);
+  const role: Role =
+    metaRole !== "individual"
+      ? metaRole
+      : fromEmail
+        ? "govt"
+        : "individual";
+  const state =
+    (typeof meta.govt_state === "string" && meta.govt_state) ||
+    (typeof meta.state === "string" && meta.state) ||
+    fromEmail ||
+    "";
+
+  return {
+    id: authUser.id,
+    name:
+      (typeof meta.full_name === "string" && meta.full_name) ||
+      email.split("@")[0] ||
+      "NaijaPass user",
+    email,
+    phone: typeof meta.phone === "string" ? meta.phone : "",
+    state,
+    role,
+    verified: role === "govt" || role === "admin",
+    govtState: role === "govt" ? state || fromEmail : undefined,
+    accountStatus: "active",
+  };
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const live = isSupabaseConfigured();
   // One browser client for the lifetime of the provider; it owns the auth
@@ -101,36 +154,33 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
   const [tenderBids, setTenderBids] = useState<TenderBid[]>([]);
 
-  const loadProfile = useCallback(async (): Promise<SessionUser | null> => {
-    if (!supabase) return null;
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) return null;
+  const loadProfile = useCallback(
+    async (authUser?: AuthUser | null): Promise<SessionUser | null> => {
+      if (!supabase) return null;
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(PROFILE_COLUMNS)
-      .eq("id", auth.user.id)
-      .maybeSingle();
+      let user = authUser ?? null;
+      if (!user) {
+        const { data: auth } = await supabase.auth.getUser();
+        user = auth.user;
+      }
+      if (!user) return null;
 
-    if (error || !data) {
-      // Auth row exists but the profiles trigger has not caught up yet.
-      return {
-        id: auth.user.id,
-        name:
-          (auth.user.user_metadata?.full_name as string | undefined) ??
-          auth.user.email?.split("@")[0] ??
-          "NaijaPass user",
-        email: auth.user.email ?? "",
-        phone: (auth.user.user_metadata?.phone as string | undefined) ?? "",
-        state: (auth.user.user_metadata?.state as string | undefined) ?? "",
-        role: "individual",
-        verified: false,
-        accountStatus: "pending",
-      };
-    }
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(PROFILE_COLUMNS)
+        .eq("id", user.id)
+        .maybeSingle();
 
-    return profileToSessionUser(data as ProfileRow);
-  }, [supabase]);
+      if (error || !data) {
+        // Auth exists but profile row is missing / blocked — keep portal roles
+        // from email/metadata so govt officers are not downgraded to individual.
+        return fallbackUserFromAuth(user);
+      }
+
+      return profileToSessionUser(data as ProfileRow);
+    },
+    [supabase],
+  );
 
   /*
    * localStorage cannot be read during render without breaking hydration, so
@@ -176,6 +226,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Establish who is signed in.
+  // Use onAuthStateChange (incl. INITIAL_SESSION) so we never deadlock by
+  // calling getUser() while the auth client is still locking for the listener.
   useEffect(() => {
     let active = true;
 
@@ -186,33 +238,48 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    void (async () => {
-      const profile = await loadProfile();
-      if (!active) return;
-      setUser(profile);
-      setPending(profile ? null : readJson<PendingRegistration>(PENDING_KEY));
-      setReady(true);
-      if (profile) void hydrateBidsFromDb();
-    })();
+    const applySession = async (authUser: AuthUser | null) => {
+      try {
+        if (!authUser) {
+          if (!active) return;
+          setUser(null);
+          setPending(readJson<PendingRegistration>(PENDING_KEY));
+          return;
+        }
+        const profile = await loadProfile(authUser);
+        if (!active) return;
+        setUser(profile);
+        setPending(profile ? null : readJson<PendingRegistration>(PENDING_KEY));
+        if (profile) void hydrateBidsFromDb();
+      } catch {
+        if (!active) return;
+        setUser(authUser ? fallbackUserFromAuth(authUser) : null);
+      } finally {
+        if (active) setReady(true);
+      }
+    };
 
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
+        if (!active) return;
         setUser(null);
+        setReady(true);
         return;
       }
-      if (event === "SIGNED_IN" || event === "USER_UPDATED") {
-        void loadProfile().then((profile) => {
-          if (active) {
-            setUser(profile);
-            if (profile) void hydrateBidsFromDb();
-          }
-        });
-      }
+      void applySession(session?.user ?? null);
     });
+
+    // Safety net: if auth never fires (rare), unlock the UI after 4s.
+    const unlock = window.setTimeout(() => {
+      if (active) setReady(true);
+    }, 4000);
 
     return () => {
       active = false;
-      sub.subscription.unsubscribe();
+      window.clearTimeout(unlock);
+      subscription.unsubscribe();
     };
   }, [supabase, loadProfile, hydrateBidsFromDb]);
 

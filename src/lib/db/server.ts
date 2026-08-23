@@ -81,14 +81,16 @@ export async function fetchProjectsByState(state: string): Promise<LiveProject[]
     const { data } = await supabase
       .from("projects")
       .select(PROJECT_COLUMNS)
-      .eq("review_status", "published")
-      .eq("published", true)
       .order("updated_at", { ascending: false })
       .limit(5000);
 
     const rows = ((data ?? []) as ProjectRow[])
       .map(mapRow)
-      .filter((project) => sameState(project.state, canonical));
+      .filter((project) => {
+        if (!sameState(project.state, canonical)) return false;
+        const status = project.reviewStatus || "published";
+        return project.published !== false && status === "published";
+      });
 
     if (!rows.length) return fallback;
     return mergeById(rows, fallback);

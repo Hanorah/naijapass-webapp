@@ -55,7 +55,10 @@ export default function Navbar() {
       if (!barRef.current?.contains(e.target as Node)) setMenu(null);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenu(null);
+      if (e.key === "Escape") {
+        setMenu(null);
+        setOpen(false);
+      }
     };
     document.addEventListener("mousedown", onClick);
     document.addEventListener("keydown", onKey);
@@ -84,16 +87,14 @@ export default function Navbar() {
       <div className="mx-auto max-w-[1440px] px-3 pt-3 md:px-5">
         <div
           ref={barRef}
-          className={`mx-auto grid h-16 w-full min-w-0 max-w-6xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full px-2.5 transition-all duration-500 sm:gap-3 sm:px-3 md:h-[4.5rem] md:px-4 ${
+          className={`mx-auto grid h-14 w-full min-w-0 max-w-6xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full px-2.5 transition-all duration-500 sm:h-16 sm:gap-3 sm:px-3 md:h-[4.5rem] md:px-4 ${
             glass
               ? "border border-white/20 bg-white/12 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.35)] backdrop-blur-xl"
               : "border border-navy/8 bg-white/95 shadow-[0_8px_40px_-24px_rgba(12,18,24,0.35)] backdrop-blur-2xl"
           }`}
         >
-          {/* Brand */}
           <NaijaPassMark size="lg" className="shrink-0" />
 
-          {/* Links — flex in the middle, never absolute-overlap */}
           <nav
             className="hidden min-w-0 items-center justify-center gap-0.5 overflow-hidden lg:flex"
             aria-label="Primary"
@@ -110,7 +111,6 @@ export default function Navbar() {
             ))}
           </nav>
 
-          {/* Actions */}
           <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-1.5">
             <div className="relative hidden md:block">
               <button
@@ -163,7 +163,9 @@ export default function Navbar() {
               <Link
                 href={homeForRole(user.role)}
                 className={`hidden items-center gap-2 rounded-full px-2.5 py-1.5 text-[13px] font-semibold transition xl:inline-flex ${
-                  glass ? "bg-white/10 text-white hover:bg-white/18" : "bg-[#f4f6f8] text-navy hover:bg-orange-soft"
+                  glass
+                    ? "bg-white/10 text-white hover:bg-white/18"
+                    : "bg-[#f4f6f8] text-navy hover:bg-orange-soft"
                 }`}
               >
                 <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-forest text-[11px] font-bold text-white">
@@ -175,7 +177,9 @@ export default function Navbar() {
               <Link
                 href="/signin"
                 className={`hidden rounded-full px-2.5 py-2 text-[13px] font-semibold transition xl:inline-flex ${
-                  glass ? "text-white/80 hover:text-white" : "text-navy/80 hover:text-navy"
+                  glass
+                    ? "text-white/80 hover:text-white"
+                    : "text-navy/80 hover:text-navy"
                 }`}
               >
                 Sign in
@@ -200,7 +204,7 @@ export default function Navbar() {
 
             <button
               type="button"
-              className={`inline-flex rounded-full p-2 transition lg:hidden ${
+              className={`inline-flex rounded-full p-2.5 transition lg:hidden ${
                 glass ? "text-white hover:bg-white/10" : "text-navy hover:bg-navy/5"
               }`}
               aria-label={open ? "Close menu" : "Open menu"}
@@ -213,60 +217,125 @@ export default function Navbar() {
         </div>
       </div>
 
-      {open && (
-        <div className="mx-3 mt-2 overflow-hidden rounded-3xl border border-navy/8 bg-white shadow-xl lg:hidden">
-          <nav className="flex flex-col gap-1 px-3 py-4" aria-label="Mobile">
-            {links.map((link) => (
-              <Link
-                key={link.label}
-                href={link.href}
-                className={`rounded-xl px-4 py-3 text-base font-medium ${
-                  isActive(link.href) ? "bg-[#f4f6f8] text-navy" : "text-navy hover:bg-mist"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
-            <div className="mt-2 border-t border-navy/8 pt-3 md:hidden">
-              <p className="px-4 pb-2 text-xs font-bold uppercase tracking-wide text-slate">
-                State
-              </p>
+      {/* Full-width mobile menu */}
+      <div
+        className={`fixed inset-0 z-[60] flex flex-col bg-[#05080b] transition-[opacity,visibility] duration-300 lg:hidden ${
+          open
+            ? "visible opacity-100"
+            : "invisible pointer-events-none opacity-0"
+        }`}
+        aria-hidden={!open}
+      >
+        <div
+          className="pointer-events-none absolute inset-0 opacity-90"
+          style={{
+            background:
+              "radial-gradient(ellipse 70% 50% at 80% -10%, rgba(15,157,108,0.28), transparent 55%), radial-gradient(ellipse 50% 40% at 0% 100%, rgba(15,157,108,0.12), transparent 50%)",
+          }}
+        />
+
+        <div className="relative flex items-center justify-between gap-3 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5">
+          <NaijaPassMark size="lg" className="shrink-0" />
+          <button
+            type="button"
+            className="inline-flex rounded-full bg-white/10 p-2.5 text-white transition hover:bg-white/16"
+            aria-label="Close menu"
+            onClick={() => setOpen(false)}
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <nav
+          className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 sm:px-5"
+          aria-label="Mobile"
+        >
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/35">
+            Navigate
+          </p>
+          <div className="space-y-1">
+            {links.map((link) => {
+              const active = isActive(link.href);
+              return (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  onClick={() => setOpen(false)}
+                  className={`flex items-center justify-between rounded-2xl px-4 py-4 text-[1.15rem] font-semibold tracking-tight transition ${
+                    active
+                      ? "bg-white text-navy"
+                      : "text-white/85 hover:bg-white/8 hover:text-white"
+                  }`}
+                  aria-current={active ? "page" : undefined}
+                >
+                  {link.label}
+                  {active ? (
+                    <span className="h-1.5 w-1.5 rounded-full bg-forest" />
+                  ) : null}
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="mt-8 rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/35">
+              Viewing state
+            </p>
+            <label className="relative mt-3 block">
+              <Crosshair className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
               <select
                 value={selectedState}
                 onChange={(e) => setSelectedState(e.target.value)}
-                className="mx-4 mb-3 w-[calc(100%-2rem)] rounded-xl border border-navy/10 bg-white px-3 py-2.5 text-sm"
+                className="w-full appearance-none rounded-2xl border border-white/12 bg-white/8 py-3.5 pl-10 pr-10 text-sm font-semibold text-white outline-none"
               >
                 {["All States", ...nigerianStates].map((s) => (
-                  <option key={s}>{s}</option>
+                  <option key={s} value={s} className="bg-navy-deep text-navy">
+                    {s}
+                  </option>
                 ))}
               </select>
-            </div>
+              <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+            </label>
+          </div>
+
+          <div className="mt-auto space-y-3 pt-10">
             {ready && user ? (
               <Link
                 href={homeForRole(user.role)}
-                className="mt-1 rounded-xl px-4 py-3 text-base font-medium text-navy xl:hidden"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-4 text-navy"
               >
-                Open portal
+                <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-forest text-sm font-bold text-white">
+                  {initials(user.name)}
+                </span>
+                <span className="min-w-0 text-left">
+                  <span className="block truncate text-base font-semibold">
+                    {user.name}
+                  </span>
+                  <span className="block text-sm text-slate">Open portal</span>
+                </span>
               </Link>
             ) : (
               <>
                 <Link
-                  href="/signin"
-                  className="mt-1 rounded-xl px-4 py-3 text-base font-medium text-navy xl:hidden"
-                >
-                  Sign in
-                </Link>
-                <Link
                   href="/signup"
-                  className="mx-2 mt-2 rounded-xl bg-forest px-4 py-3 text-center text-base font-semibold text-white lg:hidden"
+                  onClick={() => setOpen(false)}
+                  className="flex w-full items-center justify-center rounded-2xl bg-forest px-4 py-4 text-base font-semibold text-white shadow-[0_16px_40px_-16px_rgba(15,157,108,0.9)]"
                 >
                   Get started
                 </Link>
+                <Link
+                  href="/signin"
+                  onClick={() => setOpen(false)}
+                  className="flex w-full items-center justify-center rounded-2xl border border-white/15 px-4 py-4 text-base font-semibold text-white"
+                >
+                  Sign in
+                </Link>
               </>
             )}
-          </nav>
-        </div>
-      )}
+          </div>
+        </nav>
+      </div>
     </header>
   );
 }

@@ -116,7 +116,7 @@ export default function ProjectsExplorer() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-5 py-8 md:px-8 md:py-10">
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-5 sm:py-8 md:px-8 md:py-10">
       <div className="mb-8 flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate" />

@@ -224,7 +224,7 @@ export default function ProcurementExplorer() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-5 py-8 md:px-8 md:py-10">
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-5 sm:py-8 md:px-8 md:py-10">
       <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="relative min-w-0 flex-1 lg:max-w-md">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate" />
@@ -239,12 +239,13 @@ export default function ProcurementExplorer() {
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center">
           <FilterSelect
             label="State"
             value={state}
             onChange={onStateChange}
             options={stateOptions}
+            fullWidth
           />
           <FilterSelect
             label="LGA"
@@ -255,11 +256,12 @@ export default function ProcurementExplorer() {
             }}
             options={lgaOptions}
             disabled={state === "All States" || state === "Federal"}
+            fullWidth
           />
           <button
             type="button"
             onClick={() => setShowMore((v) => !v)}
-            className="inline-flex items-center gap-2 rounded-xl border border-navy/10 bg-white px-3.5 py-2.5 text-sm font-medium text-navy hover:bg-mist"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-navy/10 bg-white px-3.5 py-2.5 text-sm font-medium text-navy hover:bg-mist"
           >
             <Funnel className="h-4 w-4" />
             More Filters
@@ -267,7 +269,7 @@ export default function ProcurementExplorer() {
           <button
             type="button"
             onClick={exportCsv}
-            className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-sm font-semibold text-sky-900 hover:bg-sky-100"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-sm font-semibold text-sky-900 hover:bg-sky-100"
           >
             <Download className="h-4 w-4" />
             Export CSV
@@ -323,7 +325,59 @@ export default function ProcurementExplorer() {
         {state !== "All States" ? ` · ${state}` : " · all states"}
       </p>
 
-      <div className="overflow-hidden rounded-xl border border-navy/10 bg-white shadow-sm">
+      {/* Mobile cards */}
+      <div className="space-y-3 md:hidden">
+        {paged.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-navy/15 bg-white p-8 text-center text-sm text-slate">
+            No procurement records match these filters.
+          </p>
+        ) : (
+          paged.map((row) => (
+            <article
+              key={row.id}
+              className="rounded-2xl border border-navy/10 bg-white p-4 shadow-sm"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusClass(row.status)}`}
+                >
+                  {row.status}
+                </span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-navy/50">
+                  {row.kind}
+                </span>
+              </div>
+              <h3 className="mt-2 font-semibold leading-snug text-navy">{row.title}</h3>
+              <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                <div>
+                  <dt className="text-slate">State</dt>
+                  <dd className="mt-0.5 font-semibold text-navy">{row.state}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate">LGA</dt>
+                  <dd className="mt-0.5 font-semibold text-navy">{row.lga}</dd>
+                </div>
+                <div className="col-span-2">
+                  <dt className="text-slate">Agency</dt>
+                  <dd className="mt-0.5 font-semibold text-navy">{row.agency}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate">Amount</dt>
+                  <dd className="mt-0.5 font-semibold text-forest">{row.amount}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate">Year</dt>
+                  <dd className="mt-0.5 font-semibold text-navy">{row.year}</dd>
+                </div>
+              </dl>
+              <p className="mt-3 truncate text-[11px] text-slate">{row.reference}</p>
+            </article>
+          ))
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden overflow-hidden rounded-xl border border-navy/10 bg-white shadow-sm md:block">
         <div className="overflow-x-auto">
           <table className="min-w-[1100px] w-full border-collapse text-left text-sm">
             <thead>
@@ -350,7 +404,7 @@ export default function ProcurementExplorer() {
                       className="whitespace-nowrap px-3 py-3 text-navy-muted"
                     >
                       {col.key === "title" ? (
-                        <span className="max-w-[320px] truncate font-semibold text-forest inline-block align-bottom">
+                        <span className="inline-block max-w-[320px] truncate align-bottom font-semibold text-forest">
                           {row.title}
                         </span>
                       ) : col.key === "status" ? (
@@ -407,21 +461,29 @@ function FilterSelect({
   options,
   label,
   disabled,
+  fullWidth,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: string[];
   label?: string;
   disabled?: boolean;
+  fullWidth?: boolean;
 }) {
   return (
-    <label className="relative inline-flex items-center gap-2">
-      {label && <span className="text-xs font-semibold text-slate">{label}</span>}
+    <label
+      className={`relative inline-flex items-center gap-2 ${fullWidth ? "w-full lg:w-auto" : ""}`}
+    >
+      {label && (
+        <span className="shrink-0 text-xs font-semibold text-slate">{label}</span>
+      )}
       <select
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="appearance-none rounded-xl border border-navy/10 bg-white py-2.5 pl-3 pr-9 text-sm font-medium text-navy outline-none disabled:bg-mist disabled:text-slate"
+        className={`appearance-none rounded-xl border border-navy/10 bg-white py-2.5 pl-3 pr-9 text-sm font-medium text-navy outline-none disabled:bg-mist disabled:text-slate ${
+          fullWidth ? "min-w-0 flex-1 lg:flex-none" : ""
+        }`}
       >
         {options.map((opt) => (
           <option key={opt}>{opt}</option>

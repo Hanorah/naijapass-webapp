@@ -88,11 +88,11 @@ export default function SignInForm() {
 
   return (
     <div className="grid min-h-full flex-1 bg-white lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
-      <section className="flex flex-col px-6 py-8 sm:px-10 lg:px-14">
+      <section className="flex flex-col px-4 py-6 sm:px-10 sm:py-8 lg:px-14">
         <NaijaPassMark />
-        <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-10">
+        <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-8 sm:py-10">
           <p className="eyebrow mb-4">Portal access</p>
-          <h1 className="font-serif text-[2.45rem] leading-[1.08] tracking-[-0.03em] text-navy">
+          <h1 className="font-serif text-[clamp(2rem,7vw,2.45rem)] leading-[1.08] tracking-[-0.03em] text-navy">
             Sign in to NaijaPass
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-slate">

@@ -41,12 +41,12 @@ export default function AboutPage() {
           sizes="100vw"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-navy-deep/50 via-navy-deep/70 to-navy-deep" />
-        <div className="relative mx-auto flex min-h-[78vh] max-w-4xl flex-col items-center justify-center px-5 pb-24 pt-36 text-center md:px-8">
+        <div className="relative mx-auto flex min-h-[70vh] max-w-4xl flex-col items-center justify-center px-4 pb-20 pt-28 text-center sm:min-h-[78vh] sm:px-5 sm:pb-24 sm:pt-36 md:px-8">
           <p className="eyebrow text-forest">About NaijaPass</p>
-          <h1 className="mt-6 font-serif text-[clamp(2.6rem,6vw,5rem)] leading-[0.98] tracking-[-0.03em]">
+          <h1 className="mt-5 font-serif text-[clamp(2.1rem,7vw,5rem)] leading-[0.98] tracking-[-0.03em]">
             Building transparent <em className="italic text-forest">futures</em>.
           </h1>
-          <p className="mt-6 max-w-2xl text-base leading-relaxed text-white/65 md:text-lg">
+          <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-white/65 sm:mt-6 sm:text-base md:text-lg">
             We bridge institutional governance and civic reality — a single
             source of truth for public procurement and infrastructure across
             Nigeria.

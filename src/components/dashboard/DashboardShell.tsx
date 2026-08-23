@@ -214,7 +214,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-[272px] flex-col overflow-hidden border-r border-white/8 bg-navy-deep text-white transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(100vw,20rem)] flex-col overflow-hidden border-r border-white/8 bg-navy-deep text-white transition-transform duration-300 lg:w-[272px] lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >

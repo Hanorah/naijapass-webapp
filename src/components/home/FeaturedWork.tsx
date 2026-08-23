@@ -59,8 +59,8 @@ export default function FeaturedWork() {
   );
 
   return (
-    <section ref={root} id="projects" className="bg-white py-24 md:py-32">
-      <div className="mx-auto max-w-7xl px-5 md:px-8">
+    <section ref={root} id="projects" className="bg-white py-16 sm:py-24 md:py-32">
+      <div className="mx-auto max-w-7xl px-4 sm:px-5 md:px-8">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
             <p className="eyebrow">Live projects · {scopeLabel}</p>

@@ -91,29 +91,29 @@ export default function Hero() {
       </div>
 
       {/* Centered copy */}
-      <div className="relative z-[1] mx-auto max-w-4xl px-5 pb-24 pt-36 text-center md:px-8 md:pb-28 md:pt-40">
-        <p className="hero-kicker text-[13px] font-medium tracking-wide text-white/75">
+      <div className="relative z-[1] mx-auto max-w-4xl px-4 pb-20 pt-28 text-center sm:px-5 sm:pb-24 sm:pt-36 md:px-8 md:pb-28 md:pt-40">
+        <p className="hero-kicker text-[12px] font-medium tracking-wide text-white/75 sm:text-[13px]">
           Showing data near{" "}
           <span className="font-semibold text-white">
             {selectedState === "FCT" ? "Abuja, FCT" : `${selectedState}, Nigeria`}
           </span>
         </p>
-        <h1 className="hero-title mt-5 font-display text-[clamp(2.6rem,7vw,5.2rem)] font-semibold leading-[1.02] tracking-[-0.04em] text-white">
+        <h1 className="hero-title mt-4 font-display text-[clamp(2.15rem,8.5vw,5.2rem)] font-semibold leading-[1.02] tracking-[-0.04em] text-white sm:mt-5">
           Government work,{" "}
           <em className="font-serif font-normal italic text-white">without stress.</em>
         </h1>
-        <p className="hero-sub mx-auto mt-6 max-w-lg text-[16px] leading-relaxed text-white/75 md:text-[17px]">
+        <p className="hero-sub mx-auto mt-5 max-w-lg text-[15px] leading-relaxed text-white/75 sm:mt-6 sm:text-[16px] md:text-[17px]">
           Browse open tenders, find verified contractors, and get your state&apos;s
           contacts — all from one portal.
         </p>
-        <div className="hero-cta mt-10 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/signin" className="btn btn-primary">
+        <div className="hero-cta mt-8 flex w-full flex-col items-stretch gap-3 sm:mt-10 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center">
+          <Link href="/signin" className="btn btn-primary w-full sm:w-auto">
             Enter portal
             <ArrowUpRight className="h-4 w-4" strokeWidth={2.1} />
           </Link>
           <Link
             href="/projects"
-            className="btn border border-white/25 bg-white/10 text-white backdrop-blur-md hover:bg-white/18"
+            className="btn w-full border border-white/25 bg-white/10 text-white backdrop-blur-md hover:bg-white/18 sm:w-auto"
           >
             Browse tenders
           </Link>

@@ -8,99 +8,217 @@ import {
   Funnel,
   Search,
 } from "lucide-react";
-import {
-  edoLgas,
-  procurementColumns,
-  procurementRecords,
-  type ProcurementRecord,
-  type ProcurementStatus,
-} from "@/data/procurement";
+import { edoLgas, procurementRecords } from "@/data/procurement";
+import { lgasByState } from "@/data/projects";
+import { nigerianStates } from "@/data/states";
+import { useTenders, type TenderItem } from "@/lib/db/tenders";
 
 const PAGE_SIZE = 8;
 
-function formatAmount(n: number) {
-  return n.toLocaleString("en-NG");
+type RowKind = "Award" | "Tender";
+
+type LandingRow = {
+  id: string;
+  title: string;
+  state: string;
+  lga: string;
+  agency: string;
+  category: string;
+  amount: string;
+  status: string;
+  year: string;
+  kind: RowKind;
+  reference: string;
+};
+
+const columns: { key: keyof LandingRow; label: string }[] = [
+  { key: "title", label: "Title" },
+  { key: "state", label: "State" },
+  { key: "lga", label: "LGA" },
+  { key: "agency", label: "Procuring entity" },
+  { key: "category", label: "Category" },
+  { key: "amount", label: "Amount" },
+  { key: "status", label: "Status" },
+  { key: "year", label: "Year" },
+  { key: "kind", label: "Type" },
+  { key: "reference", label: "Reference" },
+];
+
+function formatNaira(n: number) {
+  if (!n || n <= 0) return "TBA";
+  return `NGN ${n.toLocaleString("en-NG")}`;
 }
 
-function cellValue(row: ProcurementRecord, key: (typeof procurementColumns)[number]["key"]) {
-  const value = row[key];
-  if (key === "contractAmount" || key === "tenderAmount") {
-    return formatAmount(value as number);
-  }
-  if (value === "") return "—";
-  return String(value);
+function awardLga(title: string, location: string): string {
+  const fromTitle = title.replace(/\s+Local Government$/i, "").trim();
+  if (fromTitle && !/ministry|board|agency/i.test(fromTitle)) return fromTitle;
+  return location || "—";
 }
 
-function matchesLga(row: ProcurementRecord, lga: string) {
-  if (lga === "All LGAs") return true;
-  return (
-    row.title.toLowerCase().includes(lga.toLowerCase()) ||
-    row.location.toLowerCase().includes(lga.toLowerCase()) ||
-    row.procuringEntity.toLowerCase().includes(lga.toLowerCase())
-  );
+function awardsToRows(): LandingRow[] {
+  return procurementRecords.map((row, i) => ({
+    id: `award-edo-${i}`,
+    title: row.title,
+    state: row.contractorOrigin || "Edo",
+    lga: awardLga(row.title, row.location),
+    agency: row.procuringEntity,
+    category: row.category,
+    amount: formatNaira(row.contractAmount || row.tenderAmount),
+    status: row.status,
+    year: row.year,
+    kind: "Award" as const,
+    reference: row.value,
+  }));
 }
 
-function toCsv(rows: ProcurementRecord[]) {
-  const headers = procurementColumns.map((c) => c.label);
+function tenderToRow(t: TenderItem): LandingRow {
+  const yearMatch = t.deadline.match(/\d{4}/);
+  const year =
+    yearMatch?.[0] ??
+    (t.deadline.includes("Closed") ? "—" : String(new Date().getFullYear()));
+  return {
+    id: t.id,
+    title: t.title,
+    state: t.federal || !t.states.length ? "Federal" : t.states[0],
+    lga: "—",
+    agency: t.agency,
+    category: t.sector,
+    amount: t.budget,
+    status: t.deadline.startsWith("Closed")
+      ? "Closed"
+      : t.urgent
+        ? "Urgent"
+        : "Open",
+    year,
+    kind: "Tender",
+    reference: t.ref,
+  };
+}
+
+function statusClass(status: string) {
+  if (status === "Active" || status === "Open") return "bg-orange/15 text-orange";
+  if (status === "Urgent") return "bg-red-100 text-red-700";
+  if (status === "Completed" || status === "Closed") return "bg-sky-100 text-sky-800";
+  if (status === "Suspended") return "bg-red-100 text-red-700";
+  return "bg-mist text-navy-muted";
+}
+
+function toCsv(rows: LandingRow[]) {
+  const headers = columns.map((c) => c.label);
   const lines = rows.map((row) =>
-    procurementColumns
-      .map((col) => {
-        const raw = cellValue(row, col.key).split('"').join('""');
-        return `"${raw}"`;
-      })
+    columns
+      .map((col) => `"${String(row[col.key]).split('"').join('""')}"`)
       .join(","),
   );
   return [headers.join(","), ...lines].join("\n");
 }
 
-const statusPill: Record<ProcurementStatus, string> = {
-  Active: "bg-orange/15 text-orange",
-  Completed: "bg-sky-100 text-sky-800",
-  Suspended: "bg-red-100 text-red-700",
-};
-
 export default function ProcurementExplorer() {
+  const { allTenders, source } = useTenders();
   const [query, setQuery] = useState("");
-  const [state, setState] = useState("Edo");
+  const [state, setState] = useState("All States");
   const [lga, setLga] = useState("All LGAs");
   const [showMore, setShowMore] = useState(false);
   const [category, setCategory] = useState("All");
-  const [status, setStatus] = useState<"All" | ProcurementStatus>("All");
+  const [status, setStatus] = useState("All");
   const [year, setYear] = useState("All");
+  const [kind, setKind] = useState<"All" | RowKind>("All");
   const [page, setPage] = useState(1);
 
-  const categories = ["All", ...Array.from(new Set(procurementRecords.map((r) => r.category)))];
-  const years = ["All", ...Array.from(new Set(procurementRecords.map((r) => r.year)))];
+  const rows = useMemo(() => {
+    const awards = awardsToRows();
+    const tenders = allTenders.map(tenderToRow);
+    const seen = new Set(tenders.map((t) => t.reference.toLowerCase()));
+    // Prefer live/catalogue tender rows when an award shares a reference.
+    const uniqueAwards = awards.filter(
+      (a) => !seen.has(a.reference.toLowerCase()),
+    );
+    return [...tenders, ...uniqueAwards];
+  }, [allTenders]);
+
+  const stateOptions = useMemo(() => {
+    const fromData = new Set(rows.map((r) => r.state).filter(Boolean));
+    const ordered = [
+      "All States",
+      "Federal",
+      ...nigerianStates.filter((s) => fromData.has(s) || s === "Edo"),
+    ];
+    // Keep any extra labels present in data (e.g. odd spellings).
+    for (const s of fromData) {
+      if (!ordered.includes(s)) ordered.push(s);
+    }
+    return ordered;
+  }, [rows]);
+
+  const lgaOptions = useMemo(() => {
+    if (state === "All States" || state === "Federal") {
+      return ["All LGAs"];
+    }
+    const fromCatalogue = lgasByState[state] ?? [];
+    const fromRows = rows
+      .filter((r) => r.state === state && r.lga && r.lga !== "—")
+      .map((r) => r.lga);
+    const edoExtra =
+      state === "Edo"
+        ? edoLgas.filter((name) => name !== "All LGAs")
+        : [];
+    return [
+      "All LGAs",
+      ...Array.from(new Set([...fromCatalogue, ...fromRows, ...edoExtra])).sort(),
+    ];
+  }, [state, rows]);
+
+  const categories = useMemo(
+    () => ["All", ...Array.from(new Set(rows.map((r) => r.category))).sort()],
+    [rows],
+  );
+  const years = useMemo(
+    () => ["All", ...Array.from(new Set(rows.map((r) => r.year))).filter((y) => y !== "—").sort().reverse()],
+    [rows],
+  );
+  const statuses = useMemo(
+    () => ["All", ...Array.from(new Set(rows.map((r) => r.status))).sort()],
+    [rows],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return procurementRecords.filter((row) => {
-      if (state === "Edo" && row.body !== "LGA" && row.body !== "State Ministry" && row.body !== "Board") {
-        return false;
+    return rows.filter((row) => {
+      if (state !== "All States" && row.state !== state) return false;
+      if (lga !== "All LGAs") {
+        const needle = lga.toLowerCase();
+        const hay = `${row.lga} ${row.title} ${row.agency}`.toLowerCase();
+        if (!hay.includes(needle)) return false;
       }
-      if (!matchesLga(row, lga)) return false;
       if (category !== "All" && row.category !== category) return false;
       if (status !== "All" && row.status !== status) return false;
       if (year !== "All" && row.year !== year) return false;
+      if (kind !== "All" && row.kind !== kind) return false;
       if (q) {
         const hay = Object.values(row).join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [query, state, lga, category, status, year]);
+  }, [rows, query, state, lga, category, status, year, kind]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const start = (currentPage - 1) * PAGE_SIZE;
   const paged = filtered.slice(start, start + PAGE_SIZE);
 
+  const onStateChange = (next: string) => {
+    setState(next);
+    setLga("All LGAs");
+    setPage(1);
+  };
+
   const exportCsv = () => {
     const blob = new Blob([toCsv(filtered)], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "procurement-data.csv";
+    a.download = "naijapass-procurement.csv";
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -116,27 +234,27 @@ export default function ProcurementExplorer() {
               setQuery(e.target.value);
               setPage(1);
             }}
-            placeholder="Search procurement records..."
+            placeholder="Search procurement across Nigeria…"
             className="w-full rounded-xl border border-navy/10 bg-white py-2.5 pl-10 pr-4 text-sm text-navy outline-none placeholder:text-slate focus:border-orange/40 focus:ring-2 focus:ring-orange/15"
           />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <FilterSelect
+            label="State"
             value={state}
-            onChange={(v) => {
-              setState(v);
-              setPage(1);
-            }}
-            options={["All States", "Edo"]}
+            onChange={onStateChange}
+            options={stateOptions}
           />
           <FilterSelect
+            label="LGA"
             value={lga}
             onChange={(v) => {
               setLga(v);
               setPage(1);
             }}
-            options={edoLgas}
+            options={lgaOptions}
+            disabled={state === "All States" || state === "Federal"}
           />
           <button
             type="button"
@@ -172,10 +290,10 @@ export default function ProcurementExplorer() {
             label="Status"
             value={status}
             onChange={(v) => {
-              setStatus(v as "All" | ProcurementStatus);
+              setStatus(v);
               setPage(1);
             }}
-            options={["All", "Active", "Completed", "Suspended"]}
+            options={statuses}
           />
           <FilterSelect
             label="Year"
@@ -186,15 +304,31 @@ export default function ProcurementExplorer() {
             }}
             options={years}
           />
+          <FilterSelect
+            label="Type"
+            value={kind}
+            onChange={(v) => {
+              setKind(v as "All" | RowKind);
+              setPage(1);
+            }}
+            options={["All", "Tender", "Award"]}
+          />
         </div>
       )}
 
+      <p className="mb-3 text-xs font-semibold text-slate">
+        {source === "database" ? "Live + catalogue · " : null}
+        {filtered.length.toLocaleString("en-NG")} record
+        {filtered.length === 1 ? "" : "s"}
+        {state !== "All States" ? ` · ${state}` : " · all states"}
+      </p>
+
       <div className="overflow-hidden rounded-xl border border-navy/10 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="min-w-[1600px] w-full border-collapse text-left text-sm">
+          <table className="min-w-[1100px] w-full border-collapse text-left text-sm">
             <thead>
               <tr className="bg-orange text-white">
-                {procurementColumns.map((col) => (
+                {columns.map((col) => (
                   <th
                     key={col.key}
                     className="whitespace-nowrap px-3 py-3 text-[11px] font-bold uppercase tracking-wide"
@@ -207,26 +341,30 @@ export default function ProcurementExplorer() {
             <tbody>
               {paged.map((row, i) => (
                 <tr
-                  key={`${row.value}-${row.title}-${i}`}
+                  key={row.id}
                   className={i % 2 === 0 ? "bg-white" : "bg-mist/70"}
                 >
-                  {procurementColumns.map((col) => (
+                  {columns.map((col) => (
                     <td
                       key={col.key}
                       className="whitespace-nowrap px-3 py-3 text-navy-muted"
                     >
                       {col.key === "title" ? (
-                        <span className="font-semibold text-forest">
+                        <span className="max-w-[320px] truncate font-semibold text-forest inline-block align-bottom">
                           {row.title}
                         </span>
                       ) : col.key === "status" ? (
                         <span
-                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusPill[row.status]}`}
+                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusClass(row.status)}`}
                         >
                           {row.status}
                         </span>
+                      ) : col.key === "kind" ? (
+                        <span className="text-xs font-semibold uppercase tracking-wide text-navy">
+                          {row.kind}
+                        </span>
                       ) : (
-                        cellValue(row, col.key)
+                        String(row[col.key])
                       )}
                     </td>
                   ))}
@@ -235,7 +373,7 @@ export default function ProcurementExplorer() {
               {paged.length === 0 && (
                 <tr>
                   <td
-                    colSpan={procurementColumns.length}
+                    colSpan={columns.length}
                     className="px-4 py-12 text-center text-slate"
                   >
                     No procurement records match these filters.
@@ -259,7 +397,6 @@ export default function ProcurementExplorer() {
           onPage={setPage}
         />
       </div>
-
     </div>
   );
 }
@@ -269,19 +406,22 @@ function FilterSelect({
   onChange,
   options,
   label,
+  disabled,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: string[];
   label?: string;
+  disabled?: boolean;
 }) {
   return (
     <label className="relative inline-flex items-center gap-2">
       {label && <span className="text-xs font-semibold text-slate">{label}</span>}
       <select
         value={value}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="appearance-none rounded-xl border border-navy/10 bg-white py-2.5 pl-3 pr-9 text-sm font-medium text-navy outline-none"
+        className="appearance-none rounded-xl border border-navy/10 bg-white py-2.5 pl-3 pr-9 text-sm font-medium text-navy outline-none disabled:bg-mist disabled:text-slate"
       >
         {options.map((opt) => (
           <option key={opt}>{opt}</option>

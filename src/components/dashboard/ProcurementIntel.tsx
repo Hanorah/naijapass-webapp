@@ -26,7 +26,7 @@ function publisherLabel(type?: TenderItem["publisherType"]) {
 export default function ProcurementIntel() {
   const { user, submitBid, bidForTender } = useSession();
   const { search, setSearch, selectedState } = useDashboardSearch();
-  const { liveTenders, catalogueTenders, loading, error, reload, importCatalogue, seeding } =
+  const { liveTenders, catalogueTenders, loading, error, reload } =
     useTenders(selectedState);
   const { business } = useMyBusiness(user?.id, user?.email);
   const isBusiness = user?.role === "business" || user?.role === "admin";
@@ -260,37 +260,20 @@ export default function ProcurementIntel() {
                   {error ? ` (${error})` : ""}
                 </p>
                 <p className="mt-2 text-xs">
-                  Includes NOCOPO federal tenders, Edo LGA records, and business-published
-                  contracts once imported.
+                  Live contracts appear here when published by a state government
+                  or business, or after catalogue data is loaded in the database.
                 </p>
-                <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                  <button
-                    type="button"
-                    disabled={seeding}
-                    onClick={async () => {
-                      const result = await importCatalogue();
-                      if (result.ok) {
-                        toast.success(
-                          `Imported ${result.inserted} tenders (${result.updated} updated).`,
-                        );
-                      } else {
-                        toast.error(result.error);
-                      }
-                    }}
-                    className="rounded-xl bg-forest px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                  >
-                    {seeding ? "Importing…" : "Import research catalogue"}
-                  </button>
-                  {isBusiness ? (
+                {isBusiness ? (
+                  <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                     <button
                       type="button"
                       onClick={openCreate}
                       className="rounded-xl border border-navy/10 bg-white px-4 py-2 text-sm font-semibold text-navy"
                     >
-                      Or publish your own
+                      Publish your own contract
                     </button>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
               </>
             ) : (
               <p>No reference items match these filters.</p>

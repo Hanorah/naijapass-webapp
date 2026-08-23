@@ -5,7 +5,7 @@ import { useTenders } from "@/lib/db/tenders";
 import { nigerianStates } from "@/data/states";
 
 export default function AdminTendersPage() {
-  const { tenders, source, loading, importCatalogue, seeding } = useTenders();
+  const { tenders, source, loading } = useTenders();
   const [q, setQ] = useState("");
   const [state, setState] = useState("All");
 
@@ -31,23 +31,13 @@ export default function AdminTendersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="font-serif text-3xl text-navy">Tenders</h1>
-          <p className="mt-1 text-sm text-slate">
-            {filtered.length} of {tenders.length} procurement windows ·{" "}
-            {source === "database" ? "live + catalogue" : "bundled catalogue"}
-            {loading ? " · loading…" : ""}
-          </p>
-        </div>
-        <button
-          type="button"
-          disabled={seeding}
-          onClick={() => void importCatalogue()}
-          className="rounded-xl border border-navy/12 px-4 py-2.5 text-sm font-semibold text-navy/70 hover:bg-navy/[0.04] disabled:opacity-50"
-        >
-          {seeding ? "Importing…" : "Refresh catalogue"}
-        </button>
+      <div>
+        <h1 className="font-serif text-3xl text-navy">Tenders</h1>
+        <p className="mt-1 text-sm text-slate">
+          {filtered.length} of {tenders.length} procurement windows ·{" "}
+          {source === "database" ? "live + catalogue" : "bundled catalogue"}
+          {loading ? " · loading…" : ""}
+        </p>
       </div>
 
       <div className="flex flex-wrap gap-3">

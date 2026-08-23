@@ -58,10 +58,18 @@ export default function ProjectsExplorer() {
 
   useEffect(() => {
     if (!ready) return;
-    setState(selectedState);
+    // Navbar restores a saved state from localStorage after mount. Only apply
+    // it when that state actually has projects — otherwise the list flashes
+    // full then empties (e.g. Adamawa with no catalogue rows).
+    const hasMatches =
+      selectedState === "All States" ||
+      projects.some((p) => projectMatchesState(p.state, selectedState));
+    if (hasMatches) {
+      setState(selectedState);
+    }
     setLga("");
     setPage(1);
-  }, [ready, selectedState]);
+  }, [ready, selectedState, projects]);
 
   // Derived from whatever is on screen, so LGAs a state has just published
   // show up in the filter without a redeploy.

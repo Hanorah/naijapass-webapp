@@ -8,10 +8,16 @@ import { projects, type Project, projectDetailPath } from "@/data/projects";
 import { useSiteState, projectMatchesState } from "@/lib/siteState";
 
 /** Only curated real projects — no invented state “templates”. */
-function stateProjects(state: string): Project[] {
-  return projects
+function stateProjects(state: string): { works: Project[]; nationwideFallback: boolean } {
+  const matched = projects
     .filter((p) => projectMatchesState(p.state, state))
     .slice(0, 6);
+  // If the header state has no curated rows yet, keep nationwide work visible
+  // instead of blanking the section after localStorage hydrates.
+  if (matched.length || state === "All States") {
+    return { works: matched, nationwideFallback: false };
+  }
+  return { works: projects.slice(0, 6), nationwideFallback: true };
 }
 
 function statusLabel(status: Project["status"]) {
@@ -21,10 +27,17 @@ function statusLabel(status: Project["status"]) {
 
 export default function FeaturedWork() {
   const { selectedState } = useSiteState();
-  const works = useMemo(() => stateProjects(selectedState), [selectedState]);
+  const { works, nationwideFallback } = useMemo(
+    () => stateProjects(selectedState),
+    [selectedState],
+  );
   const [active, setActive] = useState(0);
   const root = useRef<HTMLElement>(null);
   const work = works[active] ?? works[0];
+  const scopeLabel =
+    selectedState === "All States" || nationwideFallback
+      ? "Nationwide"
+      : selectedState;
 
   useEffect(() => {
     setActive(0);
@@ -90,26 +103,25 @@ export default function FeaturedWork() {
       <div className="mx-auto max-w-7xl px-5 md:px-8">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
-            <p className="eyebrow">
-              Live projects ·{" "}
-              {selectedState === "All States" ? "Nationwide" : selectedState}
-            </p>
+            <p className="eyebrow">Live projects · {scopeLabel}</p>
             <h2 className="mt-5 font-serif text-[clamp(2.2rem,4.6vw,3.75rem)] leading-[1.08] tracking-[-0.03em] text-navy">
-              {selectedState === "All States"
+              {scopeLabel === "Nationwide"
                 ? "Public projects across Nigeria"
                 : `Public projects in ${selectedState}`}
             </h2>
             <p className="mt-3 max-w-md text-sm leading-relaxed text-slate">
-              {selectedState === "All States"
-                ? "Pick a state in the header to filter, or browse the full projects index."
-                : "Change your state in the header to see roads, water, health, and energy works for that state."}
+              {nationwideFallback
+                ? `No curated entries for ${selectedState} yet — showing nationwide projects meanwhile.`
+                : selectedState === "All States"
+                  ? "Pick a state in the header to filter, or browse the full projects index."
+                  : "Change your state in the header to see roads, water, health, and energy works for that state."}
             </p>
           </div>
           <Link
             href="/projects"
             className="inline-flex items-center gap-2 text-sm font-semibold text-navy"
           >
-            {selectedState === "All States"
+            {scopeLabel === "Nationwide"
               ? "See all projects"
               : `See all in ${selectedState}`}
             <ArrowUpRight className="h-4 w-4" />

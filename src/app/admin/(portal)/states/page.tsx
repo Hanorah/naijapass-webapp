@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { Landmark, RefreshCw, Search, ShieldCheck, ShieldX } from "lucide-react";
+import { Landmark, Search, ShieldCheck, ShieldX } from "lucide-react";
 import { nigerianStates } from "@/data/states";
 import { PROFILE_COLUMNS, type ProfileRow } from "@/lib/session";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
@@ -65,7 +65,6 @@ export default function AdminStatesPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [seeding, setSeeding] = useState(false);
 
   const load = useCallback(async () => {
     setRows(await fetchStateRows());
@@ -118,24 +117,6 @@ export default function AdminStatesPage() {
     await load();
   };
 
-  const onSeedStateHub = async () => {
-    setSeeding(true);
-    try {
-      const res = await fetch("/api/admin/seed-state-content", { method: "POST" });
-      const data = (await res.json()) as { inserted?: number; error?: string };
-      if (!res.ok) {
-        toast.error(data.error ?? "Could not seed the State Hub.");
-        return;
-      }
-      toast.success(`${data.inserted ?? 0} State Hub entries created.`);
-      await load();
-    } catch {
-      toast.error("Could not reach the server.");
-    } finally {
-      setSeeding(false);
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -143,36 +124,16 @@ export default function AdminStatesPage() {
           <h1 className="font-serif text-3xl text-navy">State governments</h1>
           <p className="mt-1 text-sm text-slate">
             {provisioned} of {nigerianStates.length} states have a portal login.
-            Run the government account SQL to create the rest.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => void onSeedStateHub()}
-            disabled={seeding}
-            className="inline-flex items-center gap-2 rounded-xl border border-navy/10 px-4 py-2.5 text-sm font-semibold text-navy/70 hover:bg-navy/[0.04] hover:text-navy disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${seeding ? "animate-spin" : ""}`} />
-            {seeding ? "Seeding…" : "Seed State Hub content"}
-          </button>
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="inline-flex items-center gap-2 rounded-xl border border-navy/10 px-4 py-2.5 text-sm font-semibold text-navy/70 hover:bg-navy/[0.04] hover:text-navy"
-          >
-            Refresh
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => void load()}
+          className="inline-flex items-center gap-2 rounded-xl border border-navy/10 px-4 py-2.5 text-sm font-semibold text-navy/70 hover:bg-navy/[0.04] hover:text-navy"
+        >
+          Refresh
+        </button>
       </div>
-
-      <p className="rounded-2xl border border-navy/8 bg-navy/[0.02] p-4 text-sm leading-relaxed text-slate">
-        Each state signs in at{" "}
-        <code className="rounded bg-navy/[0.04] px-1">/govt/signin</code> with the
-        address <code className="rounded bg-navy/[0.04] px-1">state@govt.naijapass.ng</code>.
-        Row level security in Postgres restricts every account to its own state,
-        so suspending an account here is the only way to stop it publishing.
-      </p>
 
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate/60" />

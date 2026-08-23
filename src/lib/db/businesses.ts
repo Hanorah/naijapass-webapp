@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  businesses as seedBusinesses,
+  getBusinessById,
   type Business,
   type DirectoryCategory,
 } from "@/data/businesses";
@@ -10,7 +12,7 @@ import { BUSINESSES_CHANGED_EVENT } from "@/lib/db/businessEvents";
 import { normalizeDashboardState } from "@/lib/dashboardState";
 import { pexelsImageForKey } from "@/lib/pexelsImages";
 
-export type BusinessSource = "loading" | "database" | "seed";
+export type BusinessSource = "loading" | "database" | "seed" | "mixed";
 
 type BusinessRow = {
   id: string;
@@ -38,6 +40,16 @@ const BUSINESS_COLUMNS =
   "id, name, category, subcategory, state, lga, address, phone, email, website, description, verified, rating, review_count, status, services, image_url, year_founded, employees";
 
 export type LiveBusiness = Business & { listingStatus?: string };
+
+const seedAsLive: LiveBusiness[] = seedBusinesses.map((business) => ({
+  ...business,
+  listingStatus: "live",
+}));
+
+function mergeBusinesses(db: LiveBusiness[], seed: LiveBusiness[]) {
+  const seen = new Set(db.map((business) => business.id));
+  return [...db, ...seed.filter((business) => !seen.has(business.id))];
+}
 
 function rowToBusiness(row: BusinessRow): LiveBusiness {
   return {
@@ -98,8 +110,12 @@ async function fetchBusinessById(id: string) {
 }
 
 export function useBusinessProfile(id: string) {
-  const [business, setBusiness] = useState<Business | null>(null);
-  const [loading, setLoading] = useState(Boolean(id));
+  const fallback = useMemo(
+    () => (id ? (getBusinessById(id) as LiveBusiness | undefined) ?? null : null),
+    [id],
+  );
+  const [business, setBusiness] = useState<Business | null>(fallback);
+  const [loading, setLoading] = useState(Boolean(id) && isSupabaseConfigured());
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -109,16 +125,16 @@ export function useBusinessProfile(id: string) {
       return;
     }
     if (!isSupabaseConfigured()) {
-      setBusiness(null);
+      setBusiness(fallback);
       setLoading(false);
       return;
     }
     setLoading(true);
     const result = await fetchBusinessById(id);
-    setBusiness(result.business);
+    setBusiness(result.business ?? fallback);
     setError(result.error);
     setLoading(false);
-  }, [id]);
+  }, [id, fallback]);
 
   useEffect(() => {
     void load();
@@ -132,9 +148,8 @@ export function useBusinessProfile(id: string) {
     return () => window.removeEventListener(BUSINESSES_CHANGED_EVENT, onChanged);
   }, [load]);
 
-  return { business, loading, error, reload: load };
+  return { business: business ?? fallback, loading, error, reload: load };
 }
-
 
 export function useBusinesses(
   state?: string,
@@ -176,10 +191,10 @@ export function useBusinesses(
   }, [load, includeAllStatuses]);
 
   const allBusinesses = useMemo(() => {
-    if (!isSupabaseConfigured()) return [];
-    if (!settled) return [];
-    return dbRows ?? [];
-  }, [dbRows, settled]);
+    if (!isSupabaseConfigured()) return seedAsLive;
+    if (dbRows === null) return seedAsLive;
+    return mergeBusinesses(dbRows, seedAsLive);
+  }, [dbRows]);
 
   const businesses = useMemo(() => {
     if (!state) return allBusinesses;
@@ -189,13 +204,13 @@ export function useBusinesses(
     );
   }, [allBusinesses, state]);
 
-  const source: BusinessSource = !isSupabaseConfigured()
-    ? "seed"
-    : settled
-      ? dbRows?.length
-        ? "database"
-        : "seed"
-      : "loading";
+  const source: BusinessSource = !settled
+    ? "loading"
+    : !dbRows?.length
+      ? "seed"
+      : dbRows.length < allBusinesses.length
+        ? "mixed"
+        : "database";
 
   return {
     businesses,

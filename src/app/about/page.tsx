@@ -31,7 +31,7 @@ const timeline = [
 export default function AboutPage() {
   return (
     <div className="bg-white">
-      <section className="dark-canvas relative -mt-20 isolate overflow-hidden text-white">
+      <section className="dark-canvas relative isolate overflow-hidden text-white">
         <Image
           src={PEXELS_DEFAULT}
           alt="Nigerian cityscape and civic infrastructure"

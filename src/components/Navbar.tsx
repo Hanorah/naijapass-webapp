@@ -80,12 +80,8 @@ export default function Navbar() {
     }`;
 
   return (
-    <header
-      className={`${
-        isHome ? "fixed inset-x-0 top-0" : "sticky top-0"
-      } z-50 bg-transparent`}
-    >
-      <div className="mx-auto max-w-[1440px] px-3 pb-2 pt-3 md:px-5">
+    <header className="fixed inset-x-0 top-0 z-50 bg-transparent">
+      <div className="mx-auto max-w-[1440px] px-3 pt-3 md:px-5">
         <div
           ref={barRef}
           className={`mx-auto grid h-16 w-full min-w-0 max-w-6xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full px-2.5 transition-all duration-500 sm:gap-3 sm:px-3 md:h-[4.5rem] md:px-4 ${

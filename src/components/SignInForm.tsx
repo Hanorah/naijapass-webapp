@@ -155,13 +155,6 @@ export default function SignInForm() {
               to connect a live database.
             </p>
           ) : null}
-
-          <p className="mt-6 text-sm text-navy-muted">
-            Platform staff?{" "}
-            <Link href="/admin/signin" className="font-semibold text-forest">
-              Admin console sign-in
-            </Link>
-          </p>
         </div>
       </section>
 

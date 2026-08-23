@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight } from "lucide-react";
+import { useMemo, useRef } from "react";
+import { ArrowUpRight, MapPin } from "lucide-react";
 import { gsap, useGSAP } from "@/lib/gsap";
 import { projects, type Project, projectDetailPath } from "@/data/projects";
 import { useSiteState, projectMatchesState } from "@/lib/siteState";
@@ -12,8 +12,6 @@ function stateProjects(state: string): { works: Project[]; nationwideFallback: b
   const matched = projects
     .filter((p) => projectMatchesState(p.state, state))
     .slice(0, 6);
-  // If the header state has no curated rows yet, keep nationwide work visible
-  // instead of blanking the section after localStorage hydrates.
   if (matched.length || state === "All States") {
     return { works: matched, nationwideFallback: false };
   }
@@ -31,28 +29,22 @@ export default function FeaturedWork() {
     () => stateProjects(selectedState),
     [selectedState],
   );
-  const [active, setActive] = useState(0);
   const root = useRef<HTMLElement>(null);
-  const work = works[active] ?? works[0];
   const scopeLabel =
     selectedState === "All States" || nationwideFallback
       ? "Nationwide"
       : selectedState;
 
-  useEffect(() => {
-    setActive(0);
-  }, [selectedState]);
-
   useGSAP(
     () => {
       gsap.fromTo(
-        ".work-col",
-        { y: 36, autoAlpha: 0 },
+        ".work-item",
+        { y: 28, autoAlpha: 0 },
         {
           y: 0,
           autoAlpha: 1,
-          duration: 0.85,
-          stagger: 0.1,
+          duration: 0.75,
+          stagger: 0.06,
           ease: "power3.out",
           immediateRender: false,
           scrollTrigger: {
@@ -66,38 +58,6 @@ export default function FeaturedWork() {
     { scope: root },
   );
 
-  if (!works.length) {
-    return (
-      <section ref={root} id="projects" className="bg-white py-24 md:py-32">
-        <div className="mx-auto max-w-7xl px-5 md:px-8">
-          <p className="eyebrow">
-            Live projects ·{" "}
-            {selectedState === "All States" ? "Nationwide" : selectedState}
-          </p>
-          <h2 className="mt-5 font-serif text-[clamp(2.2rem,4.6vw,3.75rem)] leading-[1.08] tracking-[-0.03em] text-navy">
-            {selectedState === "All States"
-              ? "Public projects across Nigeria"
-              : `Public projects in ${selectedState}`}
-          </h2>
-          <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate">
-            We only list verified works with real project photos. No curated
-            entries for {selectedState} yet — browse the full index or switch
-            state in the header.
-          </p>
-          <Link
-            href="/projects"
-            className="mt-8 inline-flex items-center gap-2 text-sm font-semibold text-forest"
-          >
-            Open projects index
-            <ArrowUpRight className="h-4 w-4" />
-          </Link>
-        </div>
-      </section>
-    );
-  }
-
-  if (!work) return null;
-
   return (
     <section ref={root} id="projects" className="bg-white py-24 md:py-32">
       <div className="mx-auto max-w-7xl px-5 md:px-8">
@@ -110,11 +70,13 @@ export default function FeaturedWork() {
                 : `Public projects in ${selectedState}`}
             </h2>
             <p className="mt-3 max-w-md text-sm leading-relaxed text-slate">
-              {nationwideFallback
-                ? `No curated entries for ${selectedState} yet — showing nationwide projects meanwhile.`
-                : selectedState === "All States"
-                  ? "Pick a state in the header to filter, or browse the full projects index."
-                  : "Change your state in the header to see roads, water, health, and energy works for that state."}
+              {!works.length
+                ? `No curated entries for ${selectedState} yet — browse the full index or switch state in the header.`
+                : nationwideFallback
+                  ? `No curated entries for ${selectedState} yet — showing nationwide projects meanwhile.`
+                  : selectedState === "All States"
+                    ? "Pick a state in the header to filter, or browse the full projects index."
+                    : "Roads, water, health, and energy works published for this state."}
             </p>
           </div>
           <Link
@@ -128,52 +90,40 @@ export default function FeaturedWork() {
           </Link>
         </div>
 
-        <div className="mt-14 grid items-stretch gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.2fr)]">
-          <ol className="work-col divide-y divide-navy/8">
+        {works.length ? (
+          <ol className="mt-14 divide-y divide-navy/8 border-y border-navy/8">
             {works.map((item, i) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  onMouseEnter={() => setActive(i)}
-                  onFocus={() => setActive(i)}
-                  onClick={() => setActive(i)}
-                  className={`flex w-full items-center justify-between gap-4 py-5 text-left transition ${
-                    active === i ? "text-navy" : "text-navy/55 hover:text-navy/80"
-                  }`}
+              <li key={item.id} className="work-item">
+                <Link
+                  href={projectDetailPath(item.id)}
+                  className="group flex flex-col gap-3 py-6 transition sm:flex-row sm:items-baseline sm:justify-between sm:gap-8"
                 >
-                  <span className="flex items-baseline gap-4">
-                    <span className="font-display text-xs font-semibold tracking-[0.16em]">
+                  <span className="flex min-w-0 items-baseline gap-4">
+                    <span className="shrink-0 font-display text-xs font-semibold tracking-[0.16em] text-navy/40">
                       {String(i + 1).padStart(2, "0")}
                     </span>
-                    <span className="min-w-0 font-serif text-[1.35rem] leading-snug tracking-tight md:text-[1.65rem]">
-                      {item.title}
+                    <span className="min-w-0">
+                      <span className="block font-serif text-[1.35rem] leading-snug tracking-tight text-navy transition group-hover:text-forest md:text-[1.65rem]">
+                        {item.title}
+                      </span>
+                      <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate">
+                        <span className="inline-flex items-center gap-1">
+                          <MapPin className="h-3.5 w-3.5" />
+                          {item.lga}, {item.state}
+                        </span>
+                        <span>{item.category}</span>
+                        <span>{item.budgetLabel}</span>
+                      </span>
                     </span>
                   </span>
-                  {active === i && (
-                    <span className="hidden text-[11px] font-semibold uppercase tracking-[0.16em] text-forest sm:inline">
-                      Preview
-                    </span>
-                  )}
-                </button>
+                  <span className="shrink-0 pl-8 text-[11px] font-semibold uppercase tracking-[0.16em] text-forest sm:pl-0">
+                    {statusLabel(item.status)}
+                  </span>
+                </Link>
               </li>
             ))}
           </ol>
-
-          <Link
-            href={projectDetailPath(work.id)}
-            className="work-col group flex min-h-[340px] flex-col justify-end overflow-hidden rounded-[28px] bg-navy p-7 md:min-h-[460px] md:p-8"
-          >
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">
-              {work.category} · {work.budgetLabel} · {statusLabel(work.status)}
-            </p>
-            <h3 className="mt-2 font-serif text-3xl tracking-tight text-white md:text-4xl">
-              {work.title}
-            </h3>
-            <p className="mt-2 text-sm text-white/55">
-              {work.lga}, {work.state}
-            </p>
-          </Link>
-        </div>
+        ) : null}
       </div>
     </section>
   );

@@ -6,7 +6,7 @@ import { canAccess, homeForRole } from "@/lib/returnUrl";
 const PROTECTED = ["/dashboard", "/admin", "/govt"];
 
 /** Reachable while signed out even though it lives under a protected prefix. */
-const PUBLIC_EXCEPTIONS = ["/govt/signin"];
+const PUBLIC_EXCEPTIONS = ["/govt/signin", "/admin/signin"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -50,7 +50,13 @@ export async function proxy(request: NextRequest) {
 
   if (!user) {
     const signIn = request.nextUrl.clone();
-    signIn.pathname = pathname.startsWith("/govt") ? "/govt/signin" : "/signin";
+    if (pathname.startsWith("/govt")) {
+      signIn.pathname = "/govt/signin";
+    } else if (pathname.startsWith("/admin")) {
+      signIn.pathname = "/admin/signin";
+    } else {
+      signIn.pathname = "/signin";
+    }
     signIn.search = `?next=${encodeURIComponent(pathname)}`;
     return NextResponse.redirect(signIn);
   }

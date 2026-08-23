@@ -19,7 +19,7 @@ export default function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next");
-  const { signIn, live } = useSession();
+  const { signIn, signOut, live } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
@@ -38,6 +38,12 @@ export default function SignInForm() {
 
       if (result.error) {
         toast.error(result.error);
+        return;
+      }
+      if (result.user?.role === "admin") {
+        await signOut();
+        toast.error("Admin accounts use the admin console sign-in.");
+        router.push("/admin/signin");
         return;
       }
       if (result.user?.role === "govt") {
@@ -145,11 +151,17 @@ export default function SignInForm() {
 
           {!live ? (
             <p className="mt-5 text-xs leading-relaxed text-slate">
-              Offline demo mode — no Supabase keys detected. Any password works
-              for <span className="font-semibold">admin@naijapass.ng</span>. See
-              .env.example to connect a live database.
+              Offline demo mode — no Supabase keys detected. See .env.example
+              to connect a live database.
             </p>
           ) : null}
+
+          <p className="mt-6 text-sm text-navy-muted">
+            Platform staff?{" "}
+            <Link href="/admin/signin" className="font-semibold text-forest">
+              Admin console sign-in
+            </Link>
+          </p>
         </div>
       </section>
 

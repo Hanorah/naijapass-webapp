@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import NaijaPassMark from "@/components/NaijaPassMark";
 import { useSession } from "@/components/SessionProvider";
+import { adminSignInUrl } from "@/lib/returnUrl";
 import { initials } from "@/lib/session";
 
 const nav = [
@@ -48,7 +49,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!ready) return;
     if (!user) {
-      router.replace(`/signin?next=${encodeURIComponent(pathname)}`);
+      router.replace(adminSignInUrl(pathname));
       return;
     }
     if (!allowed) {
@@ -73,10 +74,10 @@ export default function AdminShell({ children }: { children: ReactNode }) {
       <div className="flex min-h-dvh flex-1 flex-col items-center justify-center gap-4 bg-white px-6 text-center">
         <p className="text-sm text-slate">Admin sign-in required.</p>
         <Link
-          href={`/signin?next=${encodeURIComponent(pathname)}`}
+          href={adminSignInUrl(pathname)}
           className="rounded-xl bg-forest px-4 py-2.5 text-sm font-semibold text-white hover:bg-forest-hover"
         >
-          Sign in
+          Admin sign in
         </Link>
       </div>
     );

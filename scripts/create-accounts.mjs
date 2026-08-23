@@ -204,7 +204,7 @@ async function main() {
 
   console.log(`\n${rows.length} state accounts ready. Credentials → ${out}`);
   console.log("State portal sign-in: /govt/signin");
-  console.log("Admin console sign-in: /signin");
+  console.log("Admin console sign-in: /admin/signin");
 }
 
 main().catch((error) => {

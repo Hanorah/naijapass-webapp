@@ -343,7 +343,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         };
       }
 
-      const profile = await loadProfile();
+      const profile = await loadProfile(result.user);
       setUser(profile);
       return { user: profile, needsKyc: true };
     },
@@ -429,15 +429,25 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return { user: null, needsKyc: false, error: "No account found." };
       }
 
-      const { error } = await supabase.auth.signInWithPassword({
+      // Pass data.user into loadProfile — do not call getUser() here.
+      // signInWithPassword holds the auth lock; getUser() during that window
+      // can hang forever (button stuck on "Signing in…").
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
         email: normalized,
         password,
       });
       if (error) {
         return { user: null, needsKyc: false, error: friendlyAuthError(error.message) };
       }
+      if (!authData.user) {
+        return {
+          user: null,
+          needsKyc: false,
+          error: "Sign-in succeeded but no user was returned. Check Supabase Auth.",
+        };
+      }
 
-      const profile = await loadProfile();
+      const profile = await loadProfile(authData.user);
       setUser(profile);
       if (!profile) {
         return { user: null, needsKyc: false, error: "Could not load your profile." };

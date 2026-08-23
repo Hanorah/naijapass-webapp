@@ -1,15 +1,7 @@
-import type { Metadata } from "next";
-import AdminShell from "@/components/admin/AdminShell";
-
-export const metadata: Metadata = {
-  title: "Admin",
-  description: "NaijaPass administration console.",
-};
-
-export default function AdminLayout({
+export default function AdminRootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <AdminShell>{children}</AdminShell>;
+  return children;
 }

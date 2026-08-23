@@ -22,6 +22,13 @@ export function govtSignInUrl(returnPath?: string) {
     : "/govt/signin";
 }
 
+/** Platform admins sign in here, never through /signin or /signup. */
+export function adminSignInUrl(returnPath?: string) {
+  return returnPath
+    ? `/admin/signin?next=${encodeURIComponent(returnPath)}`
+    : "/admin/signin";
+}
+
 export function safeReturnPath(next: string | null | undefined, fallback = "/dashboard") {
   if (!next) return fallback;
   try {
@@ -45,7 +52,10 @@ export function canAccess(
   role: "individual" | "business" | "govt" | "admin",
   pathname: string,
 ) {
-  if (pathname.startsWith("/admin")) return role === "admin";
+  if (pathname.startsWith("/admin")) {
+    if (pathname === "/admin/signin") return true;
+    return role === "admin";
+  }
   if (pathname.startsWith("/govt")) return role === "govt" || role === "admin";
   if (pathname.startsWith("/dashboard")) return role !== "govt";
   return true;

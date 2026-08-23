@@ -189,25 +189,29 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (!user) return null;
 
       try {
-        const query = supabase
-          .from("profiles")
-          .select(PROFILE_COLUMNS)
-          .eq("id", user.id)
-          .maybeSingle();
-
-        const { data, error } = await withTimeout(
-          query,
+        const result = await withTimeout(
+          Promise.resolve(
+            supabase
+              .from("profiles")
+              .select(PROFILE_COLUMNS)
+              .eq("id", user.id)
+              .maybeSingle(),
+          ),
           8000,
-          { data: null, error: { message: "Profile load timed out" } } as Awaited<
-            typeof query
-          >,
+          {
+            data: null,
+            error: { message: "Profile load timed out" },
+          } as {
+            data: ProfileRow | null;
+            error: { message: string } | null;
+          },
         );
 
-        if (error || !data) {
+        if (result.error || !result.data) {
           return fallbackUserFromAuth(user);
         }
 
-        return profileToSessionUser(data as ProfileRow);
+        return profileToSessionUser(result.data as ProfileRow);
       } catch {
         return fallbackUserFromAuth(user);
       }

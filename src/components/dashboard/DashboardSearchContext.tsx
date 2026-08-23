@@ -10,9 +10,13 @@ import {
   type ReactNode,
 } from "react";
 import { detectNigerianState } from "@/lib/locateState";
+import {
+  DASHBOARD_STATE_KEY,
+  normalizeDashboardState,
+  readCachedDashboardState,
+  writeDashboardState,
+} from "@/lib/dashboardState";
 import { useSession } from "@/components/SessionProvider";
-
-const LOCATION_KEY = "naijapass.detectedState";
 
 const DashboardSearchContext = createContext<{
   search: string;
@@ -32,10 +36,15 @@ const DashboardSearchContext = createContext<{
   coords: null,
 });
 
+function initialDashboardState() {
+  if (typeof window === "undefined") return "Lagos";
+  return readCachedDashboardState() ?? "Lagos";
+}
+
 export function DashboardSearchProvider({ children }: { children: ReactNode }) {
   const { user, ready } = useSession();
   const [search, setSearch] = useState("");
-  const [selectedState, setSelectedStateRaw] = useState("Lagos");
+  const [selectedState, setSelectedStateRaw] = useState(initialDashboardState);
   const [locating, setLocating] = useState(true);
   const [locationSource, setLocationSource] = useState<
     "user" | "geo" | "session" | "default"
@@ -44,60 +53,51 @@ export function DashboardSearchProvider({ children }: { children: ReactNode }) {
   const [resolved, setResolved] = useState(false);
 
   const setSelectedState = useCallback((v: string) => {
-    setSelectedStateRaw(v);
+    const next = writeDashboardState(v);
+    setSelectedStateRaw(next);
     setLocationSource("user");
-    try {
-      window.localStorage.setItem(LOCATION_KEY, v);
-      window.dispatchEvent(new CustomEvent("naijapass:state", { detail: v }));
-    } catch {
-      /* ignore */
-    }
+  }, []);
+
+  // Keep in sync when navbar / site state changes elsewhere.
+  useEffect(() => {
+    const onCustom = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      if (!detail) return;
+      setSelectedStateRaw(normalizeDashboardState(detail));
+      setLocationSource("user");
+    };
+    window.addEventListener("naijapass:state", onCustom);
+    return () => window.removeEventListener("naijapass:state", onCustom);
   }, []);
 
   useEffect(() => {
     if (!ready || resolved) return;
     let cancelled = false;
 
-    (async () => {
+    void (async () => {
       setLocating(true);
 
-      try {
-        const cached = window.localStorage.getItem(LOCATION_KEY);
-        if (cached) {
-          if (!cancelled) {
-            setSelectedStateRaw(cached);
-            setLocationSource("user");
-            setLocating(false);
-            setResolved(true);
-          }
-          return;
-        }
-      } catch {
-        /* ignore */
-      }
-
-      if (user?.state) {
-        if (!cancelled) {
-          setSelectedStateRaw(user.state);
-          setLocationSource("session");
-        }
+      const cached = readCachedDashboardState();
+      if (cached) {
+        setSelectedStateRaw(cached);
+        setLocationSource("user");
+      } else if (user?.state) {
+        setSelectedStateRaw(normalizeDashboardState(user.state));
+        setLocationSource("session");
       }
 
       const result = await detectNigerianState();
       if (cancelled) return;
 
       if (result.state) {
-        setSelectedStateRaw(result.state);
+        const next = normalizeDashboardState(result.state);
+        setSelectedStateRaw(next);
         setLocationSource("geo");
+        writeDashboardState(next);
         if (result.lat && result.lng) {
           setCoords({ lat: result.lat, lng: result.lng });
         }
-        try {
-          window.localStorage.setItem(LOCATION_KEY, result.state);
-        } catch {
-          /* ignore */
-        }
-      } else if (!user?.state) {
+      } else if (!cached && !user?.state) {
         setSelectedStateRaw("Lagos");
         setLocationSource("default");
       }
@@ -110,6 +110,15 @@ export function DashboardSearchProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [ready, resolved, user?.state]);
+
+  // When profile state loads after first paint, prefer it if we only have default.
+  useEffect(() => {
+    if (!ready || !user?.state || locationSource === "user" || locationSource === "geo") {
+      return;
+    }
+    setSelectedStateRaw(normalizeDashboardState(user.state));
+    setLocationSource("session");
+  }, [ready, user?.state, locationSource]);
 
   const value = useMemo(
     () => ({

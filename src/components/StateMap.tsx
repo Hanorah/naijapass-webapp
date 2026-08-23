@@ -5,8 +5,6 @@ import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
 import { MapPin, Loader2, AlertCircle } from "lucide-react";
 import { STATE_CENTERS, detectNigerianState } from "@/lib/locateState";
 import { nigerianStates, type NigerianState } from "@/data/states";
-
-const NIGERIA_CENTER = { lat: 9.082, lng: 8.6753 };
 const MAP_CONTAINER_STYLE = { width: "100%", height: "100%", borderRadius: "16px" };
 
 type StateMapProps = {
@@ -59,37 +57,40 @@ export default function StateMap({
     detectLocation();
   }, [detectLocation]);
 
+  const mapCenter = userPos ?? stateCenter;
+
   if (!apiKey) {
+    const delta = userPos ? 0.08 : 0.35;
+    const bbox = `${mapCenter.lng - delta},${mapCenter.lat - delta},${mapCenter.lng + delta},${mapCenter.lat + delta}`;
+    const embedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${mapCenter.lat}%2C${mapCenter.lng}`;
+
     return (
-      <div
-        className={`flex flex-col items-center justify-center gap-3 rounded-2xl bg-[#f4f6f8] p-8 text-center ${className}`}
-        style={{ height }}
-      >
-        <MapPin className="h-8 w-8 text-forest/60" />
-        <p className="text-sm font-medium text-navy">Map preview</p>
-        <p className="max-w-xs text-xs text-slate">
-          Add <code className="rounded bg-white px-1">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> to
-          enable interactive maps and auto state detection.
-        </p>
+      <div className={`relative overflow-hidden rounded-2xl ${className}`} style={{ height }}>
+        <iframe
+          title={`Map of ${selectedState}`}
+          src={embedUrl}
+          className="h-full w-full border-0"
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+        />
+        <div className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-navy shadow-md backdrop-blur-sm">
+          <MapPin className="h-3 w-3 text-forest" />
+          {selectedState}
+          {userPos ? <span className="text-slate">· You are here</span> : null}
+        </div>
         <button
           type="button"
           onClick={detectLocation}
           disabled={detecting}
-          className="btn btn-primary mt-2 text-xs"
+          className="absolute bottom-3 right-3 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-navy shadow-md hover:bg-[#f4f6f8] disabled:opacity-50"
         >
-          {detecting ? (
-            <>
-              <Loader2 className="h-3 w-3 animate-spin" /> Detecting…
-            </>
-          ) : (
-            "Detect my state"
-          )}
+          {detecting ? "Detecting…" : "Re-detect location"}
         </button>
-        {detectError && (
-          <p className="flex items-center gap-1 text-xs text-red-500">
-            <AlertCircle className="h-3 w-3" /> {detectError}
+        {detectError ? (
+          <p className="absolute bottom-3 left-3 flex max-w-[70%] items-center gap-1 rounded-full bg-white/95 px-3 py-1.5 text-xs text-red-600 shadow-md">
+            <AlertCircle className="h-3 w-3 shrink-0" /> {detectError}
           </p>
-        )}
+        ) : null}
       </div>
     );
   }

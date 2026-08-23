@@ -6,6 +6,9 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Crosshair, Menu, X } from "lucide-react";
 import { nigerianStates } from "@/data/states";
 import NaijaPassMark from "@/components/NaijaPassMark";
+import { useSession } from "@/components/SessionProvider";
+import { homeForRole } from "@/lib/returnUrl";
+import { initials } from "@/lib/session";
 import { useSiteState } from "@/lib/siteState";
 
 const links = [
@@ -23,6 +26,7 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState<MenuId>(null);
   const { selectedState, setSelectedState } = useSiteState();
+  const { ready, user } = useSession();
   const barRef = useRef<HTMLDivElement>(null);
   const isHome = pathname === "/";
   const glass = isHome && !scrolled && !open;
@@ -159,21 +163,44 @@ export default function Navbar() {
               )}
             </div>
 
-            <Link
-              href="/signin"
-              className={`hidden rounded-full px-2.5 py-2 text-[13px] font-semibold transition xl:inline-flex ${
-                glass ? "text-white/80 hover:text-white" : "text-navy/80 hover:text-navy"
-              }`}
-            >
-              Sign in
-            </Link>
+            {ready && user ? (
+              <Link
+                href={homeForRole(user.role)}
+                className={`hidden items-center gap-2 rounded-full px-2.5 py-1.5 text-[13px] font-semibold transition xl:inline-flex ${
+                  glass ? "bg-white/10 text-white hover:bg-white/18" : "bg-[#f4f6f8] text-navy hover:bg-orange-soft"
+                }`}
+              >
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-forest text-[11px] font-bold text-white">
+                  {initials(user.name)}
+                </span>
+                <span className="max-w-[8rem] truncate">{user.name.split(" ")[0]}</span>
+              </Link>
+            ) : (
+              <Link
+                href="/signin"
+                className={`hidden rounded-full px-2.5 py-2 text-[13px] font-semibold transition xl:inline-flex ${
+                  glass ? "text-white/80 hover:text-white" : "text-navy/80 hover:text-navy"
+                }`}
+              >
+                Sign in
+              </Link>
+            )}
 
-            <Link
-              href="/signup"
-              className="btn btn-primary hidden px-3.5 py-2 text-[13px] lg:inline-flex"
-            >
-              Get started
-            </Link>
+            {!user ? (
+              <Link
+                href="/signup"
+                className="btn btn-primary hidden px-3.5 py-2 text-[13px] lg:inline-flex"
+              >
+                Get started
+              </Link>
+            ) : (
+              <Link
+                href={homeForRole(user.role)}
+                className="btn btn-primary hidden px-3.5 py-2 text-[13px] lg:inline-flex"
+              >
+                Open portal
+              </Link>
+            )}
 
             <button
               type="button"
@@ -218,18 +245,29 @@ export default function Navbar() {
                 ))}
               </select>
             </div>
-            <Link
-              href="/signin"
-              className="mt-1 rounded-xl px-4 py-3 text-base font-medium text-navy xl:hidden"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/signup"
-              className="mx-2 mt-2 rounded-xl bg-forest px-4 py-3 text-center text-base font-semibold text-white lg:hidden"
-            >
-              Get started
-            </Link>
+            {ready && user ? (
+              <Link
+                href={homeForRole(user.role)}
+                className="mt-1 rounded-xl px-4 py-3 text-base font-medium text-navy xl:hidden"
+              >
+                Open portal
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/signin"
+                  className="mt-1 rounded-xl px-4 py-3 text-base font-medium text-navy xl:hidden"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  href="/signup"
+                  className="mx-2 mt-2 rounded-xl bg-forest px-4 py-3 text-center text-base font-semibold text-white lg:hidden"
+                >
+                  Get started
+                </Link>
+              </>
+            )}
           </nav>
         </div>
       )}

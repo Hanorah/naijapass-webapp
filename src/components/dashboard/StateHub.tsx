@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
@@ -22,14 +21,16 @@ import {
   TriangleAlert,
   Wallet,
 } from "lucide-react";
+import InitialsAvatar from "@/components/InitialsAvatar";
 import { useDashboardSearch } from "@/components/dashboard/DashboardSearchContext";
 import StateMap from "@/components/StateMap";
 import { getStateProfile } from "@/data/stateProfiles";
+import { governorInitials } from "@/lib/governorInitials";
 import { useStateContent } from "@/lib/db/stateContent";
 
 const governors: Record<
   string,
-  { name: string; photo: string; tagline: string; party: string | null }
+  { name: string; photo: string | null; initials: string; tagline: string; party: string | null }
 > = {};
 
 function getGovernorInfo(state: string) {
@@ -38,16 +39,16 @@ function getGovernorInfo(state: string) {
   if (!profile) {
     return {
       name: "Executive Governor",
-      photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80",
+      photo: null,
+      initials: "GO",
       tagline: "Official civic information for this state.",
       party: null as string | null,
     };
   }
   return {
     name: profile.governor,
-    photo:
-      profile.governorPhotoUrl ??
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80",
+    photo: profile.governorPhotoUrl ?? null,
+    initials: governorInitials(profile.governor),
     tagline: profile.slogan,
     party: profile.party,
   };
@@ -69,7 +70,7 @@ export default function StateHub() {
 
   // Anything the state government has published in its own portal wins over
   // the bundled profile; the profile is the fallback until they publish.
-  const { items: published } = useStateContent({ state: selectedState });
+  const { items: published, loading: contentLoading } = useStateContent({ state: selectedState });
 
   const announcements = useMemo(
     () =>
@@ -102,7 +103,7 @@ export default function StateHub() {
       ref: `${code}S/${law.category.slice(0, 3).toUpperCase()}/${String(law.year).slice(-2)}`,
       category: law.category,
       date: `${law.year}`,
-      url: undefined as string | undefined,
+      url: law.url,
     }));
     return seeded.length
       ? seeded
@@ -186,6 +187,9 @@ export default function StateHub() {
           { label: "State Police", number: profile.emergency.police, icon: Shield },
           { label: "Fire Service", number: profile.emergency.fire, icon: Flame },
           { label: "Ambulance", number: profile.emergency.ambulance, icon: Ambulance },
+          ...(profile.emergency.hospital
+            ? [{ label: "Hospital", number: profile.emergency.hospital, icon: Activity }]
+            : []),
         ]
       : [
           { label: "Police Command", number: "112", icon: Shield },
@@ -218,12 +222,11 @@ export default function StateHub() {
         </p>
         <div className="mt-5 flex flex-wrap items-start gap-4">
           <div className="inline-flex items-center gap-3 rounded-xl border border-navy/10 bg-[#f7faf9] p-2 pr-4">
-            <Image
+            <InitialsAvatar
+              name={governor.name}
               src={governor.photo}
-              alt={governor.name}
-              width={44}
-              height={44}
-              className="h-11 w-11 rounded-full object-cover"
+              size={44}
+              className="h-11 w-11"
             />
             <div>
               <p className="text-sm font-bold text-navy">{governor.name}</p>

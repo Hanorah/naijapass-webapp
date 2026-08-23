@@ -1,3 +1,4 @@
+import dynamic from "next/dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -18,6 +19,11 @@ import {
   type ProjectStatus,
 } from "@/data/projects";
 import { fetchProject } from "@/lib/db/server";
+
+const ProjectFeedbackPreview = dynamic(
+  () => import("@/components/ProjectFeedbackPreview"),
+  { loading: () => <p className="text-sm text-slate">Loading feedback…</p> },
+);
 
 const statusStyle: Record<ProjectStatus, string> = {
   "In Progress": "bg-orange/15 text-orange",
@@ -167,6 +173,10 @@ export default async function ProjectDetailPage({ params }: Props) {
                 )}
               </p>
             ) : null}
+
+            <div className="mt-10">
+              <ProjectFeedbackPreview projectId={project.id} />
+            </div>
           </div>
 
           <aside className="space-y-4 lg:sticky lg:top-28 lg:self-start">

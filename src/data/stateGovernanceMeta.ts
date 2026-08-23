@@ -236,6 +236,7 @@ export const stateGovernanceMeta: Record<NigerianState, StateGovernanceMeta> = {
     officialPortal: portal("osunstate.gov.ng"),
     procurementPortal: portal("bpp.osunstate.gov.ng"),
     termEndYear: 2026,
+    ssg: "Teslim Igbalaye",
   },
   Oyo: {
     governor: "Seyi Makinde",

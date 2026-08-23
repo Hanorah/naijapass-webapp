@@ -18,6 +18,7 @@ import {
   Wrench,
 } from "lucide-react";
 import NaijaPassMark from "@/components/NaijaPassMark";
+import PasswordField from "@/components/PasswordField";
 import { useSession } from "@/components/SessionProvider";
 import { nigerianStates } from "@/data/states";
 import {
@@ -193,14 +194,11 @@ export default function RegisterPage() {
             </p>
 
             <Field label="Password">
-              <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate" />
-              <input
-                type="password"
+              <PasswordField
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={setPassword}
                 placeholder="At least 8 characters"
                 autoComplete="new-password"
-                className="auth-input"
               />
             </Field>
 

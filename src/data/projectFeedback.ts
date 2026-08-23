@@ -22,7 +22,7 @@ export type ProjectSentiment = {
   topics: string[];
 };
 
-/** Generated from public/text — run `node scripts/import-projects.mjs` to refresh. */
+/** Bundled project feedback seed data. */
 const reports: FieldReport[] = [
   {
     id: "NP-FCT-ABJKAD-001",

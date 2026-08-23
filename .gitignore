@@ -36,6 +36,7 @@ yarn-error.log*
 
 # generated state government logins — never commit
 /supabase/govt-credentials.csv
+admin-logins-for-govt
 
 # vercel
 .vercel

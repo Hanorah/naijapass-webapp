@@ -235,7 +235,7 @@ export function OfflineNotice() {
         publish here will not be saved. Add your Supabase keys to{" "}
         <code className="rounded bg-black/25 px-1">.env.local</code> and run the
         SQL in <code className="rounded bg-black/25 px-1">supabase/</code> — see
-        SETUP.md.
+        .env.example.
       </p>
     </div>
   );

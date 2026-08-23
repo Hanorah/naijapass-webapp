@@ -4,12 +4,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import toast from "react-hot-toast";
-import { Eye, EyeOff, Landmark, Lock, Mail } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import NaijaPassMark from "@/components/NaijaPassMark";
 import NigeriaMap from "@/components/NigeriaMap";
 import { useSession } from "@/components/SessionProvider";
 import {
-  govtSignInUrl,
   homeForRole,
   kycUrl,
   safeReturnPath,
@@ -144,28 +143,11 @@ export default function SignInForm() {
             </Link>
           </p>
 
-          <div className="mt-6 rounded-2xl border border-navy/10 bg-navy/[0.02] p-4">
-            <p className="text-sm font-semibold text-navy">
-              Are you a state government?
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-slate">
-              State accounts are issued by the portal administrator and sign in
-              through a separate entrance.
-            </p>
-            <Link
-              href={govtSignInUrl()}
-              className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-forest"
-            >
-              <Landmark className="h-4 w-4" />
-              Government portal sign-in
-            </Link>
-          </div>
-
           {!live ? (
             <p className="mt-5 text-xs leading-relaxed text-slate">
               Offline demo mode — no Supabase keys detected. Any password works
               for <span className="font-semibold">admin@naijapass.ng</span>. See
-              SETUP.md to connect a live database.
+              .env.example to connect a live database.
             </p>
           ) : null}
         </div>

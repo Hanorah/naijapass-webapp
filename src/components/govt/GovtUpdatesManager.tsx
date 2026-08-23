@@ -113,7 +113,7 @@ export default function GovtUpdatesManager() {
       return;
     }
     if (!isSupabaseConfigured()) {
-      toast.error("Connect a Supabase database before publishing. See SETUP.md.");
+      toast.error("Connect a Supabase database before publishing. See .env.example.");
       return;
     }
 

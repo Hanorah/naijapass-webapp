@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
-import { ArrowRight, Lock, Shield } from "lucide-react";
+import { ArrowRight, Lock, Loader2, Shield } from "lucide-react";
 import FileDropzone from "@/components/FileDropzone";
 import NaijaPassMark from "@/components/NaijaPassMark";
 import { useSession } from "@/components/SessionProvider";
@@ -89,9 +89,11 @@ function IndividualForm({ onDone }: { onDone: () => void }) {
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
   const [nin, setNin] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     if (!idFile) {
       toast.error("Upload a valid ID to continue.");
       return;
@@ -105,6 +107,7 @@ function IndividualForm({ onDone }: { onDone: () => void }) {
       return;
     }
 
+    setSubmitting(true);
     try {
       const res = await fetch("/api/kyc/verify", {
         method: "POST",
@@ -124,6 +127,8 @@ function IndividualForm({ onDone }: { onDone: () => void }) {
       onDone();
     } catch {
       toast.error("Could not reach verification service.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -187,10 +192,20 @@ function IndividualForm({ onDone }: { onDone: () => void }) {
 
       <button
         type="submit"
-        className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#008751] py-3.5 text-sm font-semibold text-white transition hover:bg-[#006b41]"
+        disabled={submitting}
+        className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#008751] py-3.5 text-sm font-semibold text-white transition hover:bg-[#006b41] disabled:opacity-70"
       >
-        Submit for Verification
-        <Shield className="h-4 w-4" />
+        {submitting ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Submitting…
+          </>
+        ) : (
+          <>
+            Submit for Verification
+            <Shield className="h-4 w-4" />
+          </>
+        )}
       </button>
 
       <p className="mt-5 flex items-center justify-center gap-1.5 text-xs text-slate">
@@ -215,6 +230,7 @@ function BusinessForm({
   const [rc, setRc] = useState("");
   const [tcc, setTcc] = useState<File | null>(null);
   const [tin, setTin] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const goToDocuments = (e: FormEvent) => {
     e.preventDefault();
@@ -235,6 +251,7 @@ function BusinessForm({
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     if (!tcc) {
       toast.error("Upload a tax clearance certificate.");
       return;
@@ -244,6 +261,7 @@ function BusinessForm({
       return;
     }
 
+    setSubmitting(true);
     try {
       const res = await fetch("/api/kyc/verify", {
         method: "POST",
@@ -263,6 +281,8 @@ function BusinessForm({
       onDone({ businessType, rcNumber: rc.trim() });
     } catch {
       toast.error("Could not reach verification service.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -431,10 +451,20 @@ function BusinessForm({
         </button>
         <button
           type="submit"
-          className="inline-flex items-center gap-2 rounded-xl bg-[#008751] px-5 py-3 text-sm font-semibold text-white hover:bg-[#006b41]"
+          disabled={submitting}
+          className="inline-flex items-center gap-2 rounded-xl bg-[#008751] px-5 py-3 text-sm font-semibold text-white hover:bg-[#006b41] disabled:opacity-70"
         >
-          Continue
-          <ArrowRight className="h-4 w-4" />
+          {submitting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Submitting…
+            </>
+          ) : (
+            <>
+              Submit for Verification
+              <ArrowRight className="h-4 w-4" />
+            </>
+          )}
         </button>
       </div>
     </form>

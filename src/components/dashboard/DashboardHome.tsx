@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef } from "react";
+import { useMemo } from "react";
 import {
   ArrowUpRight,
   CloudSun,
@@ -15,9 +15,11 @@ import {
 } from "lucide-react";
 import { useSession } from "@/components/SessionProvider";
 import { useDashboardSearch } from "@/components/dashboard/DashboardSearchContext";
+import { useMyBusiness } from "@/lib/db/myBusiness";
+import { useBusinesses } from "@/lib/db/businesses";
+import { useTenders } from "@/lib/db/tenders";
 import { roleLabels } from "@/lib/session";
 import { stateDisplayName } from "@/data/marketplace";
-import { gsap, useGSAP } from "@/lib/gsap";
 
 const hour = new Date().getHours();
 const greeting =
@@ -29,9 +31,11 @@ const today = new Intl.DateTimeFormat("en-NG", {
 }).format(new Date());
 
 export default function DashboardHome() {
-  const root = useRef<HTMLDivElement>(null);
-  const { user } = useSession();
+  const { user, tenderBids } = useSession();
   const { selectedState, locating, locationSource } = useDashboardSearch();
+  const { tenders, loading: tendersLoading } = useTenders(selectedState);
+  const { allBusinesses } = useBusinesses();
+  const { business: myBusiness } = useMyBusiness(user?.id, user?.email);
   const role = user?.role ?? "individual";
   const isBusiness = role === "business" || role === "admin";
   const firstName = (user?.name ?? "Citizen").split(" ")[0];
@@ -42,26 +46,63 @@ export default function DashboardHome() {
       ? "Detected from your location"
       : locationSource === "session"
         ? "From your account"
-        : "Selected state";
+        : locationSource === "user"
+          ? "Selected in header"
+          : "Default state";
 
-  const metrics = [
-    {
-      label: isBusiness ? "Active bids" : "Saved services",
-      value: isBusiness ? "12" : "5",
-      hint: isBusiness ? "+2 this week" : "In your state",
-    },
-    {
-      label: isBusiness ? "My listings" : "Nearby listings",
-      value: isBusiness ? "3" : "18",
-      hint: "Market Hub",
-    },
-    {
-      label: "Pending alert",
-      value: "1",
-      hint: "Needs review",
-      alert: true,
-    },
-  ];
+  const myBids = useMemo(
+    () => tenderBids.filter((bid) => bid.contactEmail === user?.email),
+    [tenderBids, user?.email],
+  );
+
+  const nearbyBusinesses = useMemo(
+    () => allBusinesses.filter((item) => item.state === selectedState).length,
+    [allBusinesses, selectedState],
+  );
+
+  const urgentTenders = tenders.filter((t) => t.urgent).length;
+
+  const metrics = isBusiness
+    ? [
+        {
+          label: "Open tenders",
+          value: tendersLoading ? "…" : String(tenders.length),
+          hint: `${urgentTenders} closing soon`,
+        },
+        {
+          label: "Active bids",
+          value: String(myBids.filter((b) => b.status === "submitted").length),
+          hint: `${myBids.filter((b) => b.status === "draft").length} drafts`,
+        },
+        {
+          label: "Business profile",
+          value: myBusiness
+            ? myBusiness.status === "live"
+              ? "Live"
+              : "Pending"
+            : "Not set",
+          hint: myBusiness ? "Directory & procurement" : "Set up in profile",
+          alert: !myBusiness,
+        },
+      ]
+    : [
+        {
+          label: "Open tenders",
+          value: tendersLoading ? "…" : String(tenders.length),
+          hint: `In ${stateLabel}`,
+        },
+        {
+          label: "Verified businesses",
+          value: String(nearbyBusinesses),
+          hint: `In ${stateLabel}`,
+        },
+        {
+          label: "Verification",
+          value: user?.verified ? "Verified" : "Pending",
+          hint: user?.verified ? "Portal access" : "Complete KYC",
+          alert: !user?.verified,
+        },
+      ];
 
   const actions = [
     {
@@ -71,9 +112,11 @@ export default function DashboardHome() {
       icon: MapPin,
     },
     {
-      href: "/dashboard/marketplace",
-      title: isBusiness ? "My Market Hub" : "Open Market Hub",
-      body: isBusiness ? "Manage listings and reach." : "Find verified suppliers.",
+      href: isBusiness ? "/dashboard/profile" : "/dashboard/directory",
+      title: isBusiness ? "Business workspace" : "Business directory",
+      body: isBusiness
+        ? "Manage your company profile and bids."
+        : "Find verified suppliers in your state.",
       icon: Store,
     },
     {
@@ -90,26 +133,9 @@ export default function DashboardHome() {
     },
   ];
 
-  useGSAP(
-    () => {
-      const mm = gsap.matchMedia();
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        gsap.from(".dash-in", {
-          y: 18,
-          autoAlpha: 0,
-          duration: 0.55,
-          stagger: 0.06,
-          ease: "power3.out",
-        });
-      });
-      return () => mm.revert();
-    },
-    { scope: root },
-  );
-
   return (
-    <div ref={root} className="space-y-8">
-      <div className="dash-in flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-8">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="eyebrow">Daily briefing</p>
           <h1 className="mt-3 font-serif text-[clamp(2rem,3.4vw,2.85rem)] leading-[1.08] tracking-[-0.03em] text-navy">
@@ -140,9 +166,9 @@ export default function DashboardHome() {
         {metrics.map((m) => (
           <article
             key={m.label}
-            className="dash-in relative rounded-[24px] bg-white p-5 ring-1 ring-navy/6"
+            className="relative rounded-[24px] bg-white p-5 ring-1 ring-navy/6"
           >
-            {m.alert && (
+            {"alert" in m && m.alert && (
               <span className="absolute right-4 top-4 h-2 w-2 rounded-full bg-red-500" />
             )}
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate">
@@ -152,7 +178,7 @@ export default function DashboardHome() {
             <p className="mt-2 text-xs text-slate">{m.hint}</p>
           </article>
         ))}
-        <article className="dash-in rounded-[24px] bg-navy p-5 text-white">
+        <article className="rounded-[24px] bg-navy p-5 text-white">
           <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
             <ShieldCheck className="h-3.5 w-3.5 text-forest" />
             Verification
@@ -171,14 +197,14 @@ export default function DashboardHome() {
             const Icon = action.icon;
             return (
               <Link
-                key={action.href}
+                key={action.title}
                 href={action.href}
-                className="dash-in group rounded-[24px] bg-white p-5 ring-1 ring-navy/6 transition hover:-translate-y-0.5 hover:ring-forest/25"
+                className="group rounded-[24px] bg-white p-5 ring-1 ring-navy/6 transition hover:-translate-y-0.5 hover:ring-forest/25"
               >
                 <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-mist text-forest">
                   <Icon className="h-4 w-4" />
                 </span>
-                <p className="mt-4 font-semibold">{action.title}</p>
+                <p className="mt-4 font-semibold text-navy">{action.title}</p>
                 <p className="mt-1 text-sm text-slate">{action.body}</p>
                 <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-forest">
                   Open
@@ -191,7 +217,7 @@ export default function DashboardHome() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-        <article className="dash-in rounded-[24px] bg-white p-6 ring-1 ring-navy/6">
+        <article className="rounded-[24px] bg-white p-6 ring-1 ring-navy/6">
           <div className="flex items-center justify-between">
             <h2 className="font-serif text-2xl tracking-tight">
               Trending in {stateLabel}
@@ -222,8 +248,9 @@ export default function DashboardHome() {
               <div>
                 <p className="font-semibold">Open contracting window</p>
                 <p className="mt-1 text-sm leading-relaxed text-slate">
-                  Live tenders matching verified directory and Market Hub
-                  suppliers near you.
+                  {tenders.length > 0
+                    ? `${tenders.length} open tenders match suppliers in ${stateLabel}.`
+                    : "Check procurement for new opportunities in your state."}
                 </p>
               </div>
             </li>
@@ -232,35 +259,40 @@ export default function DashboardHome() {
                 <Megaphone className="h-4 w-4" />
               </span>
               <div>
-                <p className="font-semibold">One civic alert pending</p>
+                <p className="font-semibold">Emergency feed</p>
                 <p className="mt-1 text-sm leading-relaxed text-slate">
-                  Review the emergency feed before the evening briefing closes.
+                  Review hospitals, stations, and civic alerts for {stateLabel}.
                 </p>
               </div>
             </li>
           </ul>
         </article>
 
-        <article className="dash-in rounded-[24px] bg-white p-6 ring-1 ring-navy/6">
+        <article className="rounded-[24px] bg-white p-6 ring-1 ring-navy/6">
           <h2 className="font-serif text-2xl tracking-tight">Active tenders</h2>
           <p className="mt-1 text-sm text-slate">
             {isBusiness
-              ? "Matching your business profile — bid when ready."
+              ? "Review requirements and submit a bid from procurement."
               : "Browse opportunities. Register as a business to bid."}
           </p>
           <div className="mt-5 space-y-3">
-            <Tender
-              badge={`${stateLabel} Gov`}
-              closes="Closes in 2d"
-              title="Supply of Medical Equipment to General Hospitals"
-              canBid={isBusiness}
-            />
-            <Tender
-              badge="Federal Min. Works"
-              closes="Closes in 5d"
-              title="Road Rehabilitation Project Phase III"
-              canBid={isBusiness}
-            />
+            {tendersLoading ? (
+              <p className="text-sm text-slate">Loading tenders…</p>
+            ) : tenders.length === 0 ? (
+              <p className="rounded-2xl bg-mist/80 p-4 text-sm text-slate">
+                No open tenders for {stateLabel} right now.
+              </p>
+            ) : (
+              tenders.slice(0, 2).map((tender) => (
+                <Tender
+                  key={tender.id}
+                  badge={tender.agency}
+                  closes={tender.deadline}
+                  title={tender.title}
+                  canBid={isBusiness}
+                />
+              ))
+            )}
           </div>
           <Link
             href="/dashboard/procurement"

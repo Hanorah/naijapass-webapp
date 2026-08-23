@@ -29,7 +29,7 @@ function validateTIN(tin: string): boolean {
 
 /**
  * Free-tier KYC: format validation + checksum-style checks.
- * For production identity verification, connect YouVerify or Smile Identity (see SETUP.md).
+ * For production identity verification, connect YouVerify or Smile Identity.
  */
 export async function POST(req: NextRequest) {
   try {

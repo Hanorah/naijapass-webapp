@@ -64,7 +64,7 @@ function buildChunks(): KnowledgeChunk[] {
       id: `tender-${tender.reference}`,
       state: tender.state as NigerianState | undefined,
       category: "procurement",
-      text: `Tender: ${tender.title}. Reference: ${tender.reference}. Agency: ${tender.mda}. State: ${tender.state ?? "Federal"}. Sector: ${tender.sector}. Value: ₦${tender.value.toLocaleString()}. Deadline: ${tender.deadline}. Status: ${tender.status}.`,
+      text: `Tender: ${tender.title}. Reference: ${tender.reference}. Agency: ${tender.mda}. State: ${tender.state ?? "Federal"}. Sector: ${tender.sector}. Value: ₦${tender.value.toLocaleString()}. Deadline: ${tender.deadline}. Status: ${tender.status}.${tender.sourceUrl ? ` Source: ${tender.sourceUrl}.` : ""}`,
       keywords: tokenize(`${tender.title} ${tender.sector} tender bid contract procurement ${tender.state}`),
     });
   }

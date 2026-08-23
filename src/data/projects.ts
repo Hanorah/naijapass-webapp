@@ -19,7 +19,7 @@ export type Project = {
   supervisingAgency: string;
 };
 
-/** Generated from public/text — run `node scripts/import-projects.mjs` to refresh. */
+/** Bundled infrastructure project records (also in supabase/seed.sql). */
 export const projects: Project[] = [
   {
     id: "NP-FCT-ABJKAD",

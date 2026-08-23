@@ -129,8 +129,10 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
       ? "Detecting…"
       : locationSource === "geo"
         ? "From your location"
-        : locationSource === "session"
-          ? "From your profile"
+      : locationSource === "session"
+        ? "From your profile"
+        : locationSource === "user"
+          ? "Selected in header"
           : null;
 
   useEffect(() => {

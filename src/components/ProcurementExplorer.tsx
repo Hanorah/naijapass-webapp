@@ -1,10 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import PaginationBar from "@/components/ui/PaginationBar";
 import {
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Download,
   Funnel,
   Search,
@@ -254,40 +253,11 @@ export default function ProcurementExplorer() {
           {Math.min(start + PAGE_SIZE, filtered.length)} of {filtered.length}{" "}
           entries
         </p>
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            aria-label="Previous page"
-            disabled={currentPage === 1}
-            onClick={() => setPage(currentPage - 1)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-navy/10 text-navy disabled:opacity-40"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setPage(n)}
-              className={`inline-flex h-9 w-9 items-center justify-center rounded-lg text-sm font-semibold ${
-                n === currentPage
-                  ? "bg-orange text-white"
-                  : "border border-navy/10 text-navy hover:bg-mist"
-              }`}
-            >
-              {n}
-            </button>
-          ))}
-          <button
-            type="button"
-            aria-label="Next page"
-            disabled={currentPage === pageCount}
-            onClick={() => setPage(currentPage + 1)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-navy/10 text-navy disabled:opacity-40"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
+        <PaginationBar
+          page={currentPage}
+          pageCount={pageCount}
+          onPage={setPage}
+        />
       </div>
 
     </div>

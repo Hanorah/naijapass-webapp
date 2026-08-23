@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import PaginationBar from "@/components/ui/PaginationBar";
 import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Droplets,
   FileText,
   GraduationCap,
@@ -20,7 +18,6 @@ import {
   projectDetailPath,
   projectFeedbackPath,
   projectStates,
-  type AdminEra,
   type Project,
   type ProjectStatus,
 } from "@/data/projects";
@@ -28,20 +25,6 @@ import { useSiteState } from "@/lib/siteState";
 import { useProjects } from "@/lib/db/projects";
 
 const PAGE_SIZE = 6;
-const MAX_BUDGET = 50;
-
-const statuses: ProjectStatus[] = [
-  "In Progress",
-  "Completed",
-  "Planned",
-  "Stalled",
-];
-
-const eras: { id: AdminEra; label: string }[] = [
-  { id: "current", label: "Current Admin (2023-Present)" },
-  { id: "previous", label: "Previous Admin (2015-2023)" },
-  { id: "legacy", label: "Legacy Projects (Pre-2015)" },
-];
 
 const statusStyle: Record<ProjectStatus, string> = {
   "In Progress": "bg-orange text-white",
@@ -69,16 +52,8 @@ export default function ProjectsExplorer() {
   const { selectedState, setSelectedState, ready } = useSiteState();
   const { projects, source } = useProjects();
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState("budget-desc");
-  const [erasSelected, setErasSelected] = useState<AdminEra[]>([
-    "current",
-    "previous",
-    "legacy",
-  ]);
-  const [status, setStatus] = useState<ProjectStatus | "All">("All");
   const [state, setState] = useState("All States");
   const [lga, setLga] = useState("");
-  const [budgetMax, setBudgetMax] = useState(MAX_BUDGET);
   const [page, setPage] = useState(1);
 
   useEffect(() => {
@@ -100,41 +75,22 @@ export default function ProjectsExplorer() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    let list = projects.filter((p) => {
-      if (erasSelected.length && !erasSelected.includes(p.era)) return false;
-      if (status !== "All" && p.status !== status) return false;
+    return projects.filter((p) => {
       if (state !== "All States" && p.state !== state) return false;
       if (lga && p.lga !== lga) return false;
-      if (p.budgetNgn > 0 && p.budgetNgn > budgetMax * 1_000_000_000) return false;
       if (q) {
         const hay = `${p.title} ${p.id} ${p.contractor} ${p.state}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-
-    list = [...list].sort((a, b) => {
-      if (sort === "budget-asc") return a.budgetNgn - b.budgetNgn;
-      if (sort === "reports") return b.reports - a.reports;
-      if (sort === "name") return a.title.localeCompare(b.title);
-      return b.budgetNgn - a.budgetNgn || b.reports - a.reports;
-    });
-
-    return list;
-  }, [projects, query, sort, erasSelected, status, state, lga, budgetMax]);
+  }, [projects, query, state, lga]);
 
   const featured = filtered.find((p) => p.featured) ?? filtered[0];
   const rest = filtered.filter((p) => p.id !== featured?.id);
   const pageCount = Math.max(1, Math.ceil(rest.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const paged = rest.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
-  const toggleEra = (id: AdminEra) => {
-    setPage(1);
-    setErasSelected((prev) =>
-      prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id],
-    );
-  };
 
   const onStateChange = (next: string) => {
     setState(next);
@@ -145,13 +101,9 @@ export default function ProjectsExplorer() {
 
   const reset = () => {
     setQuery("");
-    setSort("budget-desc");
-    setErasSelected(["current", "previous", "legacy"]);
-    setStatus("All");
     setState("All States");
     setSelectedState("All States");
     setLga("");
-    setBudgetMax(MAX_BUDGET);
     setPage(1);
   };
 
@@ -170,70 +122,11 @@ export default function ProjectsExplorer() {
             className="w-full rounded-xl border border-navy/10 bg-white py-3 pl-10 pr-4 text-sm text-navy outline-none placeholder:text-slate focus:border-orange/40 focus:ring-2 focus:ring-orange/15"
           />
         </div>
-        <label className="flex items-center gap-2 text-sm text-slate">
-          Sort by:
-          <span className="relative">
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value)}
-              className="appearance-none rounded-xl border border-navy/10 bg-white py-3 pl-3 pr-9 text-sm font-medium text-navy outline-none focus:border-orange/40"
-            >
-              <option value="budget-desc">Budget (High to Low)</option>
-              <option value="budget-asc">Budget (Low to High)</option>
-              <option value="reports">Most reports</option>
-              <option value="name">Name</option>
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate" />
-          </span>
-        </label>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="h-fit rounded-2xl border border-navy/8 bg-white p-5 shadow-sm">
-          <details open className="group border-b border-navy/8 pb-4">
-            <summary className="flex cursor-pointer list-none items-center justify-between font-display text-sm font-bold text-navy">
-              Administration
-              <ChevronDown className="h-4 w-4 text-slate transition group-open:rotate-180" />
-            </summary>
-            <div className="mt-3 space-y-2.5">
-              {eras.map((era) => (
-                <label key={era.id} className="flex cursor-pointer items-start gap-2.5 text-sm text-navy-muted">
-                  <input
-                    type="checkbox"
-                    checked={erasSelected.includes(era.id)}
-                    onChange={() => toggleEra(era.id)}
-                    className="mt-0.5 accent-orange"
-                  />
-                  {era.label}
-                </label>
-              ))}
-            </div>
-          </details>
-
-          <div className="border-b border-navy/8 py-4">
-            <p className="font-display text-sm font-bold text-navy">Project Status</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {statuses.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => {
-                    setStatus(status === s ? "All" : s);
-                    setPage(1);
-                  }}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                    status === s
-                      ? "border-orange bg-orange-soft text-orange"
-                      : "border-navy/10 text-slate hover:border-navy/25"
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="border-b border-navy/8 py-4">
+          <div className="pb-4">
             <p className="font-display text-sm font-bold text-navy">Location</p>
             <div className="mt-3 space-y-2">
               <select
@@ -263,25 +156,6 @@ export default function ProjectsExplorer() {
                   </option>
                 ))}
               </select>
-            </div>
-          </div>
-
-          <div className="py-4">
-            <p className="font-display text-sm font-bold text-navy">Budget Range (NGN)</p>
-            <input
-              type="range"
-              min={0}
-              max={MAX_BUDGET}
-              value={budgetMax}
-              onChange={(e) => {
-                setBudgetMax(Number(e.target.value));
-                setPage(1);
-              }}
-              className="mt-4 w-full accent-orange"
-            />
-            <div className="mt-1 flex justify-between text-xs text-slate">
-              <span>0</span>
-              <span>{budgetMax === MAX_BUDGET ? "50B+" : `${budgetMax}B`}</span>
             </div>
           </div>
 
@@ -328,10 +202,11 @@ export default function ProjectsExplorer() {
           )}
 
           {pageCount > 1 && (
-            <Pagination
+            <PaginationBar
               page={currentPage}
               pageCount={pageCount}
               onPage={setPage}
+              className="mt-8"
             />
           )}
         </div>
@@ -443,51 +318,3 @@ function ProjectCard({ project }: { project: Project }) {
   );
 }
 
-function Pagination({
-  page,
-  pageCount,
-  onPage,
-}: {
-  page: number;
-  pageCount: number;
-  onPage: (n: number) => void;
-}) {
-  const pages = Array.from({ length: pageCount }, (_, i) => i + 1);
-
-  return (
-    <div className="mt-8 flex items-center justify-center gap-1.5">
-      <button
-        type="button"
-        aria-label="Previous page"
-        disabled={page === 1}
-        onClick={() => onPage(page - 1)}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-navy/10 text-navy disabled:opacity-40"
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </button>
-      {pages.map((n) => (
-        <button
-          key={n}
-          type="button"
-          onClick={() => onPage(n)}
-          className={`inline-flex h-9 w-9 items-center justify-center rounded-lg text-sm font-semibold ${
-            n === page
-              ? "bg-orange text-white"
-              : "border border-navy/10 text-navy hover:bg-mist"
-          }`}
-        >
-          {n}
-        </button>
-      ))}
-      <button
-        type="button"
-        aria-label="Next page"
-        disabled={page === pageCount}
-        onClick={() => onPage(page + 1)}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-navy/10 text-navy disabled:opacity-40"
-      >
-        <ChevronRight className="h-4 w-4" />
-      </button>
-    </div>
-  );
-}

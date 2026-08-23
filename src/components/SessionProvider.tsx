@@ -32,6 +32,7 @@ import {
   seedMarketplaceListings,
   type MarketplaceListing,
 } from "@/data/marketplace";
+import { readBids, upsertBid, type TenderBid } from "@/lib/bids";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
 export type AuthResult = {
@@ -57,6 +58,9 @@ type SessionContextValue = {
   refresh: () => Promise<void>;
   addListing: (listing: MarketplaceListing) => void;
   setListingStatus: (id: string, status: MarketplaceListing["status"]) => void;
+  tenderBids: TenderBid[];
+  submitBid: (bid: TenderBid) => TenderBid;
+  bidForTender: (tenderRef: string) => TenderBid | undefined;
   projectFeedback: UserProjectFeedback[];
   submitProjectFeedback: (
     input: SubmitProjectFeedbackInput,
@@ -94,6 +98,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [projectFeedback, setProjectFeedback] = useState<UserProjectFeedback[]>(
     [],
   );
+  const [tenderBids, setTenderBids] = useState<TenderBid[]>([]);
 
   const loadProfile = useCallback(async (): Promise<SessionUser | null> => {
     if (!supabase) return null;
@@ -136,6 +141,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // Hydrate marketplace + local feedback drafts (these stay client-side).
   useEffect(() => {
     setProjectFeedback(readJson<UserProjectFeedback[]>(PROJECT_FEEDBACK_KEY) ?? []);
+    setTenderBids(readBids());
     const stored = readJson<MarketplaceListing[]>(LISTINGS_KEY);
     if (stored?.length) {
       const byId = new Map(stored.map((item) => [item.id, item]));
@@ -464,6 +470,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [listings, persistListings],
   );
 
+  const submitBid = useCallback((bid: TenderBid) => {
+    const saved = upsertBid(bid);
+    setTenderBids(readBids());
+    return saved;
+  }, []);
+
+  const bidForTender = useCallback(
+    (tenderRef: string) =>
+      tenderBids.find(
+        (item) =>
+          item.tenderRef === tenderRef &&
+          item.contactEmail === user?.email,
+      ),
+    [tenderBids, user?.email],
+  );
+
   const value = useMemo(
     () => ({
       ready,
@@ -479,6 +501,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       refresh,
       addListing,
       setListingStatus,
+      tenderBids,
+      submitBid,
+      bidForTender,
       projectFeedback,
       submitProjectFeedback,
       feedbackForProject,
@@ -498,6 +523,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       refresh,
       addListing,
       setListingStatus,
+      tenderBids,
+      submitBid,
+      bidForTender,
       submitProjectFeedback,
       feedbackForProject,
     ],

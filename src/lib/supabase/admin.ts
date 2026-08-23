@@ -11,7 +11,7 @@ export function createAdminClient() {
 
   if (!url || !serviceKey) {
     throw new Error(
-      "SUPABASE_SERVICE_ROLE_KEY is not set. See .env.example and SETUP.md.",
+      "SUPABASE_SERVICE_ROLE_KEY is not set. See .env.example.",
     );
   }
 

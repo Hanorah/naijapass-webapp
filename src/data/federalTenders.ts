@@ -9,6 +9,8 @@ export type FederalTender = {
   status: "open" | "closed" | "awarded";
   source: "nocopo" | "budeshi" | "state-ocp" | "budgit";
   publishedAt: string;
+  /** Direct link to the tender notice when verified by research. */
+  sourceUrl?: string;
 };
 
 /** Federal & state procurement from NOCOPO, Budeshi, and state OCP portals (BudgIT ecosystem). */
@@ -80,7 +82,7 @@ export const federalTenders: FederalTender[] = [
     state: "Edo",
     sector: "Infrastructure",
     value: 1800000000,
-    deadline: "2026-08-15",
+    deadline: "2026-09-15",
     status: "open",
     source: "state-ocp",
     publishedAt: "2026-05-28",
@@ -192,6 +194,87 @@ export const federalTenders: FederalTender[] = [
     status: "awarded",
     source: "nocopo",
     publishedAt: "2026-02-14",
+  },
+  // Research-sourced notices with verified deep links (RESEARCH.md Aug 2026)
+  {
+    reference: "LASG/LAMATA/AFD/01",
+    title: "Construction of Marina Transport Interchange",
+    mda: "LAMATA / Lagos State Government",
+    state: "Lagos",
+    sector: "Transport Infrastructure",
+    value: 0,
+    deadline: "2026-10-31",
+    status: "open",
+    source: "state-ocp",
+    publishedAt: "2026-06-01",
+    sourceUrl:
+      "https://lagosppa.gov.ng/invitation-for-bids-ifb-lagos-metropolitan-area-transport-authority-lamata/",
+  },
+  {
+    reference: "LASG/LAMATA/AFD/02",
+    title: "Construction of Mile 2 Transport Interchange",
+    mda: "LAMATA / Lagos State Government",
+    state: "Lagos",
+    sector: "Transport Infrastructure",
+    value: 0,
+    deadline: "2026-10-31",
+    status: "open",
+    source: "state-ocp",
+    publishedAt: "2026-06-01",
+    sourceUrl:
+      "https://lagosppa.gov.ng/invitation-for-bids-ifb-lagos-metropolitan-area-transport-authority-lamata/",
+  },
+  {
+    reference: "LASG/LAWMA/2026/01",
+    title: "Year 2026 Dumpsites Rehabilitation Exercise",
+    mda: "Lagos Waste Management Authority",
+    state: "Lagos",
+    sector: "Environmental Infrastructure",
+    value: 0,
+    deadline: "2026-09-15",
+    status: "open",
+    source: "state-ocp",
+    publishedAt: "2026-06-01",
+    sourceUrl: "https://lagosppa.gov.ng/category/tenders/",
+  },
+  {
+    reference: "LASG/LWC/2026/02",
+    title: "Pre-Qualification of Suppliers & Contractors — Lagos Water Corporation",
+    mda: "Lagos Water Corporation",
+    state: "Lagos",
+    sector: "Water Utility",
+    value: 0,
+    deadline: "2026-09-30",
+    status: "open",
+    source: "state-ocp",
+    publishedAt: "2026-06-01",
+    sourceUrl: "https://lagosppa.gov.ng/category/tenders/",
+  },
+  {
+    reference: "NGT/FED/2026/10",
+    title: "Long Term Agreement for Branded Visibility Materials",
+    mda: "International Organization for Migration (IOM)",
+    state: null,
+    sector: "Goods & Services",
+    value: 0,
+    deadline: "2026-06-09",
+    status: "open",
+    source: "nocopo",
+    publishedAt: "2026-05-01",
+    sourceUrl: "https://nigeria.iom.int/iom-nigeria-tenders",
+  },
+  {
+    reference: "LASG/IOM/LOS/01",
+    title: "Provision of Vehicle Rental Services (Lagos State)",
+    mda: "International Organization for Migration",
+    state: "Lagos",
+    sector: "Logistics & Services",
+    value: 0,
+    deadline: "2026-05-25",
+    status: "open",
+    source: "state-ocp",
+    publishedAt: "2026-04-15",
+    sourceUrl: "https://nigeria.iom.int/iom-nigeria-tenders",
   },
 ];
 

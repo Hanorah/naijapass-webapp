@@ -17,8 +17,11 @@ import {
   X,
 } from "lucide-react";
 import { useDashboardSearch } from "@/components/dashboard/DashboardSearchContext";
+import InitialsAvatar from "@/components/InitialsAvatar";
+import { useSession } from "@/components/SessionProvider";
+import { useBusinesses } from "@/lib/db/businesses";
+import { stateDisplayName } from "@/data/marketplace";
 import {
-  businesses,
   directoryCategories,
   directoryLgasByState,
   lagosLgas,
@@ -38,6 +41,9 @@ const catIcons = {
 
 export default function BusinessDirectory() {
   const { search, selectedState } = useDashboardSearch();
+  const { user } = useSession();
+  const { businesses, loading, source } = useBusinesses(selectedState);
+  const isBusiness = user?.role === "business" || user?.role === "admin";
   const [lga, setLga] = useState("All LGAs");
   const [categories, setCategories] = useState<DirectoryCategory[]>([]);
   const [showAllCats, setShowAllCats] = useState(false);
@@ -80,7 +86,7 @@ export default function BusinessDirectory() {
       return b.rating - a.rating;
     });
     return list;
-  }, [search, selectedState, lga, categories, verifiedOnly, openNow, posOnly, sort]);
+  }, [businesses, search, selectedState, lga, categories, verifiedOnly, openNow, posOnly, sort]);
 
   const shown = filtered.slice(0, visible);
 
@@ -113,12 +119,21 @@ export default function BusinessDirectory() {
               Change state from the header to explore other hubs.
             </p>
           </div>
-          <Link
-            href="/signup?role=business"
-            className="inline-flex shrink-0 items-center justify-center rounded-xl bg-forest px-4 py-2.5 text-sm font-semibold text-white hover:bg-forest-hover"
-          >
-            + Register Business
-          </Link>
+          {isBusiness ? (
+            <Link
+              href="/dashboard/profile"
+              className="inline-flex shrink-0 items-center justify-center rounded-xl bg-forest px-4 py-2.5 text-sm font-semibold text-white hover:bg-forest-hover"
+            >
+              Manage my business
+            </Link>
+          ) : (
+            <Link
+              href="/signup?role=business"
+              className="inline-flex shrink-0 items-center justify-center rounded-xl bg-forest px-4 py-2.5 text-sm font-semibold text-white hover:bg-forest-hover"
+            >
+              + Register Business
+            </Link>
+          )}
         </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
@@ -223,7 +238,7 @@ export default function BusinessDirectory() {
           <div>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-2">
-                <Chip onClick={() => {}}>Active: Lagos State</Chip>
+                <Chip>Active: {stateDisplayName(selectedState)}</Chip>
                 {verifiedOnly && (
                   <Chip onClick={() => setVerifiedOnly(false)}>Verified Only</Chip>
                 )}
@@ -245,10 +260,16 @@ export default function BusinessDirectory() {
               </label>
             </div>
 
-            {shown.length === 0 ? (
+            {loading ? (
               <p className="rounded-2xl border border-dashed border-navy/15 bg-white p-10 text-center text-slate">
-                No businesses match these filters in {selectedState}. Try another
-                LGA or clear filters.
+                Loading verified businesses…
+              </p>
+            ) : shown.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-navy/15 bg-white p-10 text-center text-slate">
+                No verified businesses in {stateDisplayName(selectedState)} match these filters.
+                {isBusiness
+                  ? " Set up your company profile to appear here once approved."
+                  : " Try another LGA or clear filters."}
               </p>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -257,15 +278,21 @@ export default function BusinessDirectory() {
                     key={biz.id}
                     className="overflow-hidden rounded-2xl border border-forest/10 bg-white shadow-sm"
                   >
-                    <div className="relative h-40">
+                    <div className="relative h-40 bg-mist">
                       <Link href={`/dashboard/directory/${biz.id}`} className="absolute inset-0">
-                        <Image
-                          src={biz.image}
-                          alt={biz.name}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 768px) 100vw, 33vw"
-                        />
+                        {biz.image ? (
+                          <Image
+                            src={biz.image}
+                            alt={biz.name}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 768px) 100vw, 33vw"
+                          />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center">
+                            <InitialsAvatar name={biz.name} size={72} rounded="2xl" />
+                          </span>
+                        )}
                       </Link>
                       {biz.verified && (
                         <span className="pointer-events-none absolute left-3 top-3 rounded-md bg-forest px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
@@ -396,14 +423,16 @@ function Chip({
   onClick,
 }: {
   children: React.ReactNode;
-  onClick: () => void;
+  onClick?: () => void;
 }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-navy">
       {children}
-      <button type="button" onClick={onClick} aria-label="Remove filter">
-        <X className="h-3 w-3" />
-      </button>
+      {onClick ? (
+        <button type="button" onClick={onClick} aria-label="Remove filter">
+          <X className="h-3 w-3" />
+        </button>
+      ) : null}
     </span>
   );
 }

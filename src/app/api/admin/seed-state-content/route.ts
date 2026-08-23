@@ -118,6 +118,9 @@ export async function POST() {
       [`${state} Police Command`, emergency.police],
       [`${state} Fire Service`, emergency.fire],
       [`${state} Ambulance / SEMA`, emergency.ambulance],
+      ...(emergency.hospital
+        ? [[`${state} Hospital / Teaching Hospital`, emergency.hospital] as [string, string]]
+        : []),
     ];
 
     for (const [title, phone] of emergencyLines) {
@@ -139,9 +142,10 @@ export async function POST() {
         type: "mda",
         title: mda.name,
         body: mda.focus,
-        contact: mda.name,
+        contact: mda.email ?? mda.name,
         phone: mda.phone,
         category: mda.focus,
+        url: mda.url ?? null,
         published: true,
       });
     }
@@ -155,6 +159,7 @@ export async function POST() {
         contact: null,
         phone: null,
         category: law.category,
+        url: law.url ?? null,
         published: true,
       });
     }

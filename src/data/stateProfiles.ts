@@ -1,5 +1,7 @@
 import type { NigerianState } from "@/data/states";
 import { stateGovernanceMeta } from "@/data/stateGovernanceMeta";
+import { stateGovernorPhotos } from "@/data/stateGovernorPhotos";
+import { stateHubResearch } from "@/data/stateHubResearch";
 
 export type StateProfile = {
   state: NigerianState;
@@ -23,9 +25,10 @@ export type StateProfile = {
     police: string;
     fire: string;
     ambulance: string;
+    hospital?: string;
   };
-  mdas: { name: string; focus: string; phone: string }[];
-  laws: { title: string; category: string; year: number }[];
+  mdas: { name: string; focus: string; phone: string; email?: string; url?: string }[];
+  laws: { title: string; category: string; year: number; url?: string }[];
   highlights: string[];
 };
 
@@ -457,11 +460,38 @@ const stateProfilesRaw: Record<NigerianState, StateProfile> = {
 
 const baseProfiles: Record<NigerianState, StateProfile> = stateProfilesRaw;
 
+function mergeProfile(state: NigerianState, base: StateProfile): StateProfile {
+  const gov = stateGovernanceMeta[state];
+  const hub = stateHubResearch[state];
+  const photo = stateGovernorPhotos[state];
+
+  const merged: StateProfile = {
+    ...base,
+    ...gov,
+    ...(photo ? { governorPhotoUrl: photo } : {}),
+  };
+
+  if (hub.emergency) {
+    merged.emergency = {
+      national: "112",
+      police: hub.emergency.police ?? base.emergency.police,
+      fire: hub.emergency.fire ?? base.emergency.fire,
+      ambulance: hub.emergency.ambulance ?? base.emergency.ambulance,
+      ...(hub.emergency.hospital ? { hospital: hub.emergency.hospital } : {}),
+    };
+  }
+
+  if (hub.mdas?.length) merged.mdas = hub.mdas;
+  if (hub.laws?.length) merged.laws = hub.laws;
+
+  return merged;
+}
+
 /** Bundled profiles with research-sourced governance metadata layered on top. */
 export const stateProfiles: Record<NigerianState, StateProfile> = Object.fromEntries(
   (Object.entries(baseProfiles) as [NigerianState, StateProfile][]).map(([state, profile]) => [
     state,
-    { ...profile, ...stateGovernanceMeta[state] },
+    mergeProfile(state, profile),
   ]),
 ) as Record<NigerianState, StateProfile>;
 

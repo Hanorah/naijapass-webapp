@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { TENDER_COLUMNS, type TenderRow } from "@/lib/db/types";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
+import { type TenderRow } from "@/lib/db/types";
 import { federalTenders } from "@/data/federalTenders";
 
 export type TenderItem = {
@@ -17,6 +17,9 @@ export type TenderItem = {
   urgent: boolean;
   states: string[];
   federal?: boolean;
+  /** True when row comes from Supabase (UUID id) — bids persist in DB. */
+  live: boolean;
+  publisherType?: "govt" | "business" | "federal";
 };
 
 export type TenderSource = "loading" | "database" | "seed";
@@ -55,6 +58,8 @@ function rowToTender(row: TenderRow): TenderItem {
       : false,
     states: row.state ? [row.state] : [],
     federal: !row.state,
+    live: true,
+    publisherType: row.publisher_type ?? "govt",
   };
 }
 
@@ -74,6 +79,8 @@ function seedFromFederal(): TenderItem[] {
         new Date(t.deadline).getTime() - Date.now() < 1000 * 60 * 60 * 24 * 7,
       states: t.state ? [t.state] : [],
       federal: !t.state,
+      live: false,
+      publisherType: "federal",
     }));
 }
 
@@ -95,17 +102,20 @@ function mergeTenders(db: TenderItem[], seed: TenderItem[]) {
 }
 
 async function fetchAllTenders() {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("tenders")
-    .select(TENDER_COLUMNS)
-    .eq("status", "open")
-    .order("deadline", { ascending: true });
-
-  if (error) return { rows: null as TenderItem[] | null, error: error.message };
-
-  const rows = (data ?? []) as TenderRow[];
-  return { rows: rows.map(rowToTender), error: null };
+  try {
+    const res = await fetch("/api/tenders/list", { cache: "no-store" });
+    const data = (await res.json()) as {
+      tenders?: TenderRow[];
+      error?: string;
+    };
+    if (!res.ok || data.error) {
+      return { rows: null as TenderItem[] | null, error: data.error ?? "Could not load tenders." };
+    }
+    const rows = (data.tenders ?? []) as TenderRow[];
+    return { rows: rows.map(rowToTender), error: null };
+  } catch {
+    return { rows: null as TenderItem[] | null, error: "Could not reach tender API." };
+  }
 }
 
 export function useTenders(state?: string) {
@@ -113,6 +123,7 @@ export function useTenders(state?: string) {
   const [dbRows, setDbRows] = useState<TenderItem[] | null>(null);
   const [settled, setSettled] = useState(!isSupabaseConfigured());
   const [error, setError] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState(false);
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured()) return;
@@ -122,25 +133,82 @@ export function useTenders(state?: string) {
     setSettled(true);
   }, []);
 
+  const importCatalogue = useCallback(async () => {
+    if (!isSupabaseConfigured() || seeding) return { ok: false as const, error: "Busy" };
+    setSeeding(true);
+    try {
+      const res = await fetch("/api/tenders/seed-catalogue", { method: "POST" });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        inserted?: number;
+        updated?: number;
+        error?: string;
+      };
+      if (!res.ok) {
+        return { ok: false as const, error: data.error ?? "Import failed" };
+      }
+      await load();
+      try {
+        window.dispatchEvent(new CustomEvent("naijapass:tenders-changed"));
+      } catch {
+        /* ignore */
+      }
+      return {
+        ok: true as const,
+        inserted: data.inserted ?? 0,
+        updated: data.updated ?? 0,
+      };
+    } catch {
+      return { ok: false as const, error: "Could not reach the server." };
+    } finally {
+      setSeeding(false);
+    }
+  }, [load, seeding]);
+
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
     let active = true;
     void (async () => {
+      // Idempotent: upsert researched NOCOPO / state tenders into live board.
+      try {
+        await fetch("/api/tenders/seed-catalogue", { method: "POST" });
+      } catch {
+        /* continue — board still loads whatever is in DB */
+      }
       const result = await fetchAllTenders();
       if (!active) return;
       setDbRows(result.rows);
       setError(result.error);
       setSettled(true);
     })();
+
+    const onFocus = () => {
+      void load();
+    };
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("naijapass:tenders-changed", onFocus);
     return () => {
       active = false;
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("naijapass:tenders-changed", onFocus);
     };
-  }, []);
+  }, [load]);
 
   const allTenders = useMemo(() => {
     if (!isSupabaseConfigured()) return seed;
     return mergeTenders(settled ? (dbRows ?? []) : [], seed);
   }, [dbRows, seed, settled]);
+
+  const liveTenders = useMemo(() => {
+    const db = settled ? (dbRows ?? []) : [];
+    if (!state) return db;
+    return db.filter((t) => tenderMatchesState(t, state));
+  }, [dbRows, settled, state]);
+
+  const catalogueTenders = useMemo(() => {
+    if (!state) return seed;
+    return seed.filter((t) => tenderMatchesState(t, state));
+  }, [seed, state]);
 
   const tenders = useMemo(() => {
     if (!state) return allTenders;
@@ -157,10 +225,14 @@ export function useTenders(state?: string) {
 
   return {
     tenders,
+    liveTenders,
+    catalogueTenders,
     allTenders,
     source,
     error,
     reload: load,
+    importCatalogue,
+    seeding,
     loading: isSupabaseConfigured() && !settled,
   };
 }

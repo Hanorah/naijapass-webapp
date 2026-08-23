@@ -20,6 +20,7 @@ import BusinessProfileEditor from "@/components/dashboard/BusinessProfileEditor"
 import { useDashboardSearch } from "@/components/dashboard/DashboardSearchContext";
 import { useSession } from "@/components/SessionProvider";
 import { useMyBusiness } from "@/lib/db/myBusiness";
+import { useIncomingBids, useMyPublishedContracts } from "@/lib/db/procurement";
 import { useTenders } from "@/lib/db/tenders";
 import { initials, roleLabels } from "@/lib/session";
 import { stateDisplayName } from "@/data/marketplace";
@@ -28,7 +29,12 @@ import { directoryCategories } from "@/data/businesses";
 export default function ProfileView() {
   const { user, updateUser, tenderBids } = useSession();
   const { selectedState } = useDashboardSearch();
-  const { tenders } = useTenders(selectedState);
+  const displayName = user?.name ?? "Guest";
+  const role = user?.role ?? "individual";
+  const isBusiness = role === "business" || role === "admin";
+  const homeState = user?.state ?? selectedState;
+
+  const { liveTenders } = useTenders(selectedState);
   const {
     business,
     loading: businessLoading,
@@ -36,6 +42,16 @@ export default function ProfileView() {
     setVisibility,
     reload,
   } = useMyBusiness(user?.id, user?.email);
+  const {
+    contracts: publishedContracts,
+    loading: contractsLoading,
+    reload: reloadContracts,
+  } = useMyPublishedContracts(isBusiness);
+  const {
+    bids: incomingBids,
+    loading: incomingLoading,
+    reload: reloadIncoming,
+  } = useIncomingBids(isBusiness);
   const [editing, setEditing] = useState(false);
   const [editor, setEditor] = useState(false);
   const [name, setName] = useState(user?.name ?? "");
@@ -48,13 +64,8 @@ export default function ProfileView() {
     setState(user?.state ?? "");
   }, [user]);
 
-  const displayName = user?.name ?? "Guest";
-  const role = user?.role ?? "individual";
-  const isBusiness = role === "business" || role === "admin";
-  const homeState = user?.state ?? selectedState;
-
   const myBids = useMemo(
-    () => tenderBids.filter((bid) => bid.contactEmail === user?.email),
+    () => (tenderBids ?? []).filter((bid) => bid.contactEmail === user?.email),
     [tenderBids, user?.email],
   );
 
@@ -111,14 +122,18 @@ export default function ProfileView() {
                     : "Not set"
               }
             />
-            <MetricCard label="Open tenders" value={String(tenders.length)} />
+            <MetricCard label="Open tenders" value={String(liveTenders.length)} />
+            <MetricCard
+              label="Published contracts"
+              value={contractsLoading ? "…" : String(publishedContracts.length)}
+            />
             <MetricCard
               label="Submitted bids"
               value={String(myBids.filter((b) => b.status === "submitted").length)}
             />
             <MetricCard
-              label="Verification"
-              value={user?.verified ? "Verified" : "Pending"}
+              label="Bids received"
+              value={incomingLoading ? "…" : String(incomingBids.length)}
             />
           </div>
 
@@ -139,7 +154,7 @@ export default function ProfileView() {
               href="/dashboard/procurement"
               icon={BadgeCheck}
               title="Procurement"
-              body="Review tenders and submit bids."
+              body="Bid on live contracts or publish your own RFP."
             />
           </div>
 
@@ -148,17 +163,17 @@ export default function ProfileView() {
               <div>
                 <h2 className="font-serif text-xl tracking-tight">Your business</h2>
                 <p className="mt-1 text-sm text-slate">
-                  One registered company — not separate product listings.
+                  One registered company 
                 </p>
               </div>
-              {business && (
+              {business?.id && !business.id.startsWith("local-") ? (
                 <Link
                   href={`/dashboard/directory/${business.id}`}
                   className="text-sm font-semibold text-forest"
                 >
                   View public profile
                 </Link>
-              )}
+              ) : null}
             </div>
 
             {businessLoading ? (
@@ -227,12 +242,165 @@ export default function ProfileView() {
           </section>
 
           <section className="rounded-[24px] bg-white p-6 ring-1 ring-navy/6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-serif text-xl tracking-tight">Published contracts</h2>
+                <p className="mt-1 text-sm text-slate">
+                  RFPs you posted for other businesses to bid on.
+                </p>
+              </div>
+              <Link href="/dashboard/procurement" className="text-sm font-semibold text-forest">
+                Publish new
+              </Link>
+            </div>
+            {contractsLoading ? (
+              <p className="mt-5 text-sm text-slate">Loading…</p>
+            ) : publishedContracts.length === 0 ? (
+              <p className="mt-5 text-sm text-slate">
+                No contracts published yet. Open Procurement → Publish contract.
+              </p>
+            ) : (
+              <ul className="mt-5 divide-y divide-navy/8">
+                {publishedContracts.map((contract) => (
+                  <li
+                    key={contract.id}
+                    className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <p className="font-semibold text-navy">{contract.reference ?? contract.id.slice(0, 8)}</p>
+                      <p className="text-sm text-slate">{contract.title}</p>
+                      <p className="text-xs text-slate">
+                        {contract.sector} · {contract.state} · {contract.status}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const res = await fetch("/api/tenders/upsert", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ id: contract.id, status: "closed", title: contract.title, state: contract.state ?? selectedState }),
+                        });
+                        if (res.ok) {
+                          toast.success("Contract closed.");
+                          void reloadContracts();
+                          void reloadIncoming();
+                        } else {
+                          const data = (await res.json()) as { error?: string };
+                          toast.error(data.error ?? "Could not close contract.");
+                        }
+                      }}
+                      className="shrink-0 rounded-xl border border-navy/10 px-3 py-2 text-xs font-semibold text-navy hover:bg-mist"
+                    >
+                      Close listing
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="rounded-[24px] bg-white p-6 ring-1 ring-navy/6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-serif text-xl tracking-tight">Bids on your contracts</h2>
+                <p className="mt-1 text-sm text-slate">
+                  Submissions from other businesses on contracts you published.
+                </p>
+              </div>
+            </div>
+            {incomingLoading ? (
+              <p className="mt-5 text-sm text-slate">Loading…</p>
+            ) : incomingBids.length === 0 ? (
+              <p className="mt-5 text-sm text-slate">
+                No bids received yet. Publish a contract in Procurement to start receiving bids.
+              </p>
+            ) : (
+              <ul className="mt-5 divide-y divide-navy/8">
+                {incomingBids.map((bid) => (
+                  <li
+                    key={bid.id}
+                    className="flex flex-col gap-3 py-3 sm:flex-row sm:items-start sm:justify-between"
+                  >
+                    <div>
+                      <p className="font-semibold text-navy">
+                        {bid.tenders?.reference ?? bid.tender_id.slice(0, 8)}
+                      </p>
+                      <p className="text-sm text-slate">{bid.tenders?.title ?? "Contract"}</p>
+                      <p className="text-sm font-medium text-navy">{bid.business_name}</p>
+                      <p className="text-xs text-slate">
+                        NGN {bid.proposed_amount?.toLocaleString("en-NG") ?? "—"} ·{" "}
+                        {bid.contact_email}
+                      </p>
+                      {bid.notes ? (
+                        <p className="mt-1 text-xs text-slate line-clamp-2">{bid.notes}</p>
+                      ) : null}
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-forest">
+                        {bid.status}
+                      </span>
+                      {bid.status === "submitted" || bid.status === "draft" ? (
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const res = await fetch("/api/tenders/bids", {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ bidId: bid.id, status: "accepted" }),
+                              });
+                              const data = (await res.json()) as { error?: string };
+                              if (!res.ok) {
+                                toast.error(data.error ?? "Could not accept bid.");
+                                return;
+                              }
+                              toast.success("Bid accepted. Bidder will be notified if email is set up.");
+                              void reloadIncoming();
+                            }}
+                            className="rounded-xl bg-forest px-3 py-1.5 text-xs font-semibold text-white hover:bg-forest-hover"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const res = await fetch("/api/tenders/bids", {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ bidId: bid.id, status: "rejected" }),
+                              });
+                              const data = (await res.json()) as { error?: string };
+                              if (!res.ok) {
+                                toast.error(data.error ?? "Could not reject bid.");
+                                return;
+                              }
+                              toast.success("Bid rejected.");
+                              void reloadIncoming();
+                            }}
+                            className="rounded-xl border border-navy/10 px-3 py-1.5 text-xs font-semibold text-navy hover:bg-mist"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="rounded-[24px] bg-white p-6 ring-1 ring-navy/6">
             <div className="flex items-center justify-between gap-3">
               <h2 className="font-serif text-xl tracking-tight">Your bids</h2>
               <Link href="/dashboard/procurement" className="text-sm font-semibold text-forest">
                 Find tenders
               </Link>
             </div>
+            <p className="mt-1 text-sm text-slate">
+              Bids you submitted on government and business contracts.
+            </p>
             {myBids.length === 0 ? (
               <p className="mt-5 text-sm text-slate">
                 No bids yet. Open procurement and submit from a tender row.
@@ -367,6 +535,7 @@ export default function ProfileView() {
 
       {editor && isBusiness && (
         <BusinessProfileEditor
+          ownerId={user?.id}
           defaultState={homeState}
           defaultName={user?.name ?? ""}
           defaultEmail={user?.email ?? ""}
@@ -374,7 +543,7 @@ export default function ProfileView() {
           existing={business}
           onClose={() => setEditor(false)}
           onSave={async (input) => {
-            const result = await save(input);
+            const result = await save(input, { verified: Boolean(user?.verified) });
             if (!result.error) void reload();
             return { error: result.error };
           }}

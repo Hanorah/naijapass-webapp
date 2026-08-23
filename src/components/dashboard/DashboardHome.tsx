@@ -51,7 +51,7 @@ export default function DashboardHome() {
           : "Default state";
 
   const myBids = useMemo(
-    () => tenderBids.filter((bid) => bid.contactEmail === user?.email),
+    () => (tenderBids ?? []).filter((bid) => bid.contactEmail === user?.email),
     [tenderBids, user?.email],
   );
 

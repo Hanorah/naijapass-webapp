@@ -129,6 +129,10 @@ export function ragAnswer(query: string, state: string): string {
     return "Pick your state from the header dropdown, then ask again.";
   }
 
+  if (/^(hi|hello|hey|good\s*(morning|afternoon|evening)|howdy)\b/i.test(query.trim())) {
+    return `Hello — you're looking at ${profile.state}. Ask me about emergency numbers, open tenders, permits, or who the governor is. You can also tap the suggestions below.`;
+  }
+
   if (q.includes("emergency") || q.includes("police") || q.includes("hospital") || q.includes("fire")) {
     return `In ${profile.state}, dial 112 for national emergency. State police: ${profile.emergency.police}. Fire: ${profile.emergency.fire}. Ambulance: ${profile.emergency.ambulance}. Open Emergency in the portal for hospitals and stations near you.`;
   }

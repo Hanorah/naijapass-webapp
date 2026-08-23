@@ -5,7 +5,7 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { Phone } from "lucide-react";
 import BusinessProfile from "@/components/dashboard/BusinessProfile";
-import { useBusinesses } from "@/lib/db/businesses";
+import { useBusinessProfile } from "@/lib/db/businesses";
 import { directoryCategories } from "@/data/businesses";
 
 export default function DirectoryProfilePage({
@@ -14,8 +14,7 @@ export default function DirectoryProfilePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const { allBusinesses, loading } = useBusinesses();
-  const biz = allBusinesses.find((item) => item.id === id);
+  const { business: biz, loading, error } = useBusinessProfile(id);
 
   if (loading) {
     return (
@@ -25,12 +24,27 @@ export default function DirectoryProfilePage({
     );
   }
 
+  if (error) {
+    return (
+      <div className="px-4 py-16 text-center md:px-6">
+        <h1 className="font-display text-2xl font-bold text-navy">Could not load profile</h1>
+        <p className="mt-2 text-sm text-slate">{error}</p>
+        <Link
+          href="/dashboard/directory"
+          className="mt-4 inline-block text-sm font-semibold text-forest"
+        >
+          Back to directory
+        </Link>
+      </div>
+    );
+  }
+
   if (!biz) {
     return (
       <div className="px-4 py-16 text-center md:px-6">
         <h1 className="font-display text-2xl font-bold text-navy">Business not found</h1>
         <p className="mt-2 text-sm text-slate">
-          This company is not in the verified directory yet.
+          This company is not in the verified directory yet, or the link is outdated.
         </p>
         <Link
           href="/dashboard/directory"
@@ -82,11 +96,23 @@ export default function DirectoryProfilePage({
           ) : (
             <button
               type="button"
-              onClick={() => toast.success("Contact request logged.")}
+              onClick={() => {
+                const subject = encodeURIComponent(`Contact request — ${biz.name}`);
+                const body = encodeURIComponent(
+                  `Hello ${biz.name},\n\nI found your listing on NaijaPass and would like to connect.\n`,
+                );
+                if (biz.email) {
+                  window.location.href = `mailto:${biz.email}?subject=${subject}&body=${body}`;
+                } else if (biz.phone) {
+                  window.location.href = `tel:${biz.phone.replace(/\s/g, "")}`;
+                } else {
+                  toast.error("This business has no email or phone on file.");
+                }
+              }}
               className="inline-flex items-center gap-2 rounded-xl bg-forest px-5 py-3 text-sm font-semibold text-white hover:bg-forest-hover"
             >
               <Phone className="h-4 w-4" />
-              Request contact
+              Contact business
             </button>
           )}
         </div>

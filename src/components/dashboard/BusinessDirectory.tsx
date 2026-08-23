@@ -20,6 +20,7 @@ import { useDashboardSearch } from "@/components/dashboard/DashboardSearchContex
 import InitialsAvatar from "@/components/InitialsAvatar";
 import { useSession } from "@/components/SessionProvider";
 import { useBusinesses } from "@/lib/db/businesses";
+import { normalizeDashboardState } from "@/lib/dashboardState";
 import { stateDisplayName } from "@/data/marketplace";
 import {
   directoryCategories,
@@ -68,7 +69,9 @@ export default function BusinessDirectory() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = businesses.filter((b) => {
-      if (b.state !== selectedState) return false;
+      if (normalizeDashboardState(b.state) !== normalizeDashboardState(selectedState)) {
+        return false;
+      }
       if (lga !== "All LGAs" && b.lga !== lga) return false;
       if (categories.length && !categories.includes(b.category)) return false;
       if (verifiedOnly && !b.verified) return false;

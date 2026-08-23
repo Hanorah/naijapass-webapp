@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import toast from "react-hot-toast";
-import { ImagePlus, X } from "lucide-react";
+import { ImagePlus, Loader2, X } from "lucide-react";
 import { nigerianStates } from "@/data/states";
 import {
   directoryCategories,
@@ -11,8 +11,13 @@ import {
 } from "@/data/businesses";
 import { stateDisplayName } from "@/data/marketplace";
 import type { MyBusiness, SaveMyBusinessInput } from "@/lib/db/myBusiness";
+import {
+  isRemoteImageUrl,
+  uploadBusinessImage,
+} from "@/lib/storage/businessImage";
 
 type Props = {
+  ownerId?: string;
   defaultState: string;
   defaultName?: string;
   defaultEmail?: string;
@@ -23,6 +28,7 @@ type Props = {
 };
 
 export default function BusinessProfileEditor({
+  ownerId,
   defaultState,
   defaultName = "",
   defaultEmail = "",
@@ -42,6 +48,9 @@ export default function BusinessProfileEditor({
   const [website, setWebsite] = useState(existing?.website ?? "");
   const [address, setAddress] = useState(existing?.address ?? "");
   const [imagePreview, setImagePreview] = useState(existing?.image ?? "");
+  const [imageUrl, setImageUrl] = useState(
+    existing?.image && isRemoteImageUrl(existing.image) ? existing.image : "",
+  );
   const [state, setState] = useState(existing?.state ?? defaultState);
   const [lga, setLga] = useState(
     existing?.lga ??
@@ -49,6 +58,7 @@ export default function BusinessProfileEditor({
       "Oredo",
   );
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     if (!directoryLgasByState[state]?.includes(lga)) {
@@ -60,18 +70,38 @@ export default function BusinessProfileEditor({
     (item) => item !== "All LGAs",
   );
 
-  const onImage = (file: File | null) => {
+  const onImage = async (file: File | null) => {
     if (!file) {
       setImagePreview("");
+      setImageUrl("");
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be under 5MB.");
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Image must be under 8MB.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => setImagePreview(String(reader.result ?? ""));
-    reader.readAsDataURL(file);
+
+    const preview = URL.createObjectURL(file);
+    setImagePreview(preview);
+
+    if (!ownerId) {
+      toast.error("Sign in again to upload images.");
+      return;
+    }
+
+    setUploadingImage(true);
+    const result = await uploadBusinessImage(ownerId, file);
+    setUploadingImage(false);
+
+    if (result.error || !result.url) {
+      toast.error(result.error ?? "Could not upload image.");
+      setImageUrl("");
+      return;
+    }
+
+    setImageUrl(result.url);
+    setImagePreview(result.url);
+    toast.success("Photo uploaded.");
   };
 
   const onSubmit = async (e: FormEvent) => {
@@ -84,6 +114,11 @@ export default function BusinessProfileEditor({
       toast.error("Website must start with http:// or https://");
       return;
     }
+    if (uploadingImage) {
+      toast.error("Wait for the photo upload to finish.");
+      return;
+    }
+
     setSaving(true);
     const result = await onSave({
       name: name.trim(),
@@ -97,18 +132,13 @@ export default function BusinessProfileEditor({
       website: website.trim(),
       description: description.trim(),
       services: [subcategory.trim()],
-      image: imagePreview || undefined,
+      image: imageUrl || undefined,
     });
     setSaving(false);
     if (result.error) {
       toast.error(result.error);
       return;
     }
-    toast.success(
-      existing
-        ? "Business profile updated. Pending review if changed."
-        : "Business profile submitted for verification.",
-    );
     onClose();
   };
 
@@ -145,18 +175,27 @@ export default function BusinessProfileEditor({
                   No image
                 </div>
               )}
+              {uploadingImage && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white/70">
+                  <Loader2 className="h-6 w-6 animate-spin text-forest" />
+                </div>
+              )}
             </div>
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-navy/20 px-4 py-3 text-sm font-semibold text-forest hover:bg-mist">
               <ImagePlus className="h-4 w-4" />
-              Upload photo
+              {uploadingImage ? "Uploading…" : "Upload photo"}
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 className="sr-only"
-                onChange={(e) => onImage(e.target.files?.[0] ?? null)}
+                disabled={uploadingImage}
+                onChange={(e) => void onImage(e.target.files?.[0] ?? null)}
               />
             </label>
           </div>
+          {imageUrl ? (
+            <p className="mt-1 text-xs font-medium text-forest">Photo ready — save is fast now.</p>
+          ) : null}
         </label>
 
         <label className="mt-4 block text-sm font-bold text-navy">
@@ -285,10 +324,11 @@ export default function BusinessProfileEditor({
           </button>
           <button
             type="submit"
-            disabled={saving}
-            className="rounded-xl bg-forest px-4 py-2.5 text-sm font-semibold text-white hover:bg-forest-hover disabled:opacity-60"
+            disabled={saving || uploadingImage}
+            className="inline-flex items-center gap-2 rounded-xl bg-forest px-4 py-2.5 text-sm font-semibold text-white hover:bg-forest-hover disabled:opacity-60"
           >
-            {saving ? "Saving…" : existing ? "Save profile" : "Submit profile"}
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            {saving ? "Saving…" : existing ? "Save profile" : "Publish business"}
           </button>
         </div>
       </form>

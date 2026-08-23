@@ -340,6 +340,39 @@ create trigger tenders_updated_at
   before update on public.tenders
   for each row execute function public.set_updated_at();
 
+-- Business procurement: bids + businesses publishing contracts (see business-procurement.sql)
+alter table public.tenders add column if not exists publisher_type text
+  not null default 'govt';
+alter table public.tenders drop constraint if exists tenders_publisher_type_check;
+alter table public.tenders add constraint tenders_publisher_type_check
+  check (publisher_type in ('govt', 'business', 'federal'));
+alter table public.tenders add column if not exists business_id uuid
+  references public.businesses (id) on delete set null;
+
+create table if not exists public.tender_bids (
+  id uuid primary key default gen_random_uuid(),
+  tender_id uuid not null references public.tenders (id) on delete cascade,
+  bidder_id uuid not null references public.profiles (id) on delete cascade,
+  business_id uuid references public.businesses (id) on delete set null,
+  business_name text not null,
+  contact_email text not null,
+  proposed_amount numeric,
+  currency text not null default 'NGN',
+  notes text,
+  status text not null default 'submitted'
+    check (status in ('draft', 'submitted', 'withdrawn', 'accepted', 'rejected')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (tender_id, bidder_id)
+);
+
+drop trigger if exists tender_bids_updated_at on public.tender_bids;
+create trigger tender_bids_updated_at
+  before update on public.tender_bids
+  for each row execute function public.set_updated_at();
+
+alter table public.tender_bids enable row level security;
+
 -- ─── State hub content (laws, MDAs, emergency, announcements) ──
 -- This is what a state government publishes from /govt/updates.
 
@@ -560,7 +593,12 @@ create policy "businesses_owner_insert" on public.businesses
 
 drop policy if exists "businesses_owner_update" on public.businesses;
 create policy "businesses_owner_update" on public.businesses
-  for update using (owner_id = auth.uid() or public.is_admin());
+  for update using (owner_id = auth.uid() or public.is_admin())
+  with check (owner_id = auth.uid() or public.is_admin());
+
+drop policy if exists "businesses_owner_read" on public.businesses;
+create policy "businesses_owner_read" on public.businesses
+  for select using (owner_id = auth.uid());
 
 drop policy if exists "businesses_admin_all" on public.businesses;
 create policy "businesses_admin_all" on public.businesses
@@ -610,6 +648,77 @@ create policy "tenders_govt_update" on public.tenders
 drop policy if exists "tenders_govt_delete" on public.tenders;
 create policy "tenders_govt_delete" on public.tenders
   for delete using (public.is_govt_for(state));
+
+drop policy if exists "tenders_business_insert" on public.tenders;
+create policy "tenders_business_insert" on public.tenders
+  for insert with check (
+    submitted_by = auth.uid()
+    and publisher_type = 'business'
+    and exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid() and p.role in ('business', 'admin')
+    )
+  );
+
+drop policy if exists "tenders_business_update" on public.tenders;
+create policy "tenders_business_update" on public.tenders
+  for update using (
+    submitted_by = auth.uid() and publisher_type = 'business'
+  )
+  with check (
+    submitted_by = auth.uid() and publisher_type = 'business'
+  );
+
+drop policy if exists "tenders_business_delete" on public.tenders;
+create policy "tenders_business_delete" on public.tenders
+  for delete using (
+    submitted_by = auth.uid() and publisher_type = 'business'
+  );
+
+-- Tender bids
+drop policy if exists "tender_bids_own_read" on public.tender_bids;
+create policy "tender_bids_own_read" on public.tender_bids
+  for select using (
+    bidder_id = auth.uid()
+    or public.is_admin()
+    or exists (
+      select 1 from public.tenders t
+      where t.id = tender_id and t.submitted_by = auth.uid()
+    )
+    or public.is_govt_for((select state from public.tenders where id = tender_id))
+  );
+
+drop policy if exists "tender_bids_own_insert" on public.tender_bids;
+create policy "tender_bids_own_insert" on public.tender_bids
+  for insert with check (
+    bidder_id = auth.uid()
+    and exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid() and p.role in ('business', 'admin')
+    )
+  );
+
+drop policy if exists "tender_bids_own_update" on public.tender_bids;
+create policy "tender_bids_own_update" on public.tender_bids
+  for update using (bidder_id = auth.uid() or public.is_admin())
+  with check (bidder_id = auth.uid() or public.is_admin());
+
+drop policy if exists "tender_bids_publisher_update" on public.tender_bids;
+create policy "tender_bids_publisher_update" on public.tender_bids
+  for update using (
+    public.is_admin()
+    or exists (
+      select 1 from public.tenders t
+      where t.id = tender_id and t.submitted_by = auth.uid()
+    )
+  )
+  with check (
+    public.is_admin()
+    or exists (
+      select 1 from public.tenders t
+      where t.id = tender_id and t.submitted_by = auth.uid()
+    )
+  );
 
 -- State content
 drop policy if exists "state_content_public_read" on public.state_content;
@@ -677,9 +786,16 @@ create index if not exists idx_field_reports_project on public.field_reports (pr
 create index if not exists idx_feedback_project on public.project_feedback (project_id);
 create index if not exists idx_businesses_state on public.businesses (state);
 create index if not exists idx_businesses_status on public.businesses (status);
+create unique index if not exists idx_businesses_owner_unique
+  on public.businesses (owner_id)
+  where owner_id is not null;
 create index if not exists idx_listings_status on public.listings (status);
 create index if not exists idx_tenders_state on public.tenders (state);
 create index if not exists idx_tenders_deadline on public.tenders (deadline);
+create index if not exists idx_tender_bids_tender on public.tender_bids (tender_id);
+create index if not exists idx_tender_bids_bidder on public.tender_bids (bidder_id);
+create index if not exists idx_tenders_publisher on public.tenders (publisher_type);
+create index if not exists idx_tenders_submitted_by on public.tenders (submitted_by);
 create index if not exists idx_state_content_state on public.state_content (state);
 create index if not exists idx_profiles_govt_state on public.profiles (govt_state);
 create index if not exists idx_projects_review on public.projects (review_status);
@@ -721,6 +837,38 @@ begin
   end;
 end $$;
 
+-- ─── Business image storage (run once in Supabase SQL editor) ──
+
+insert into storage.buckets (id, name, public)
+values ('business-images', 'business-images', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists "business_images_public_read" on storage.objects;
+create policy "business_images_public_read" on storage.objects
+  for select using (bucket_id = 'business-images');
+
+drop policy if exists "business_images_auth_upload" on storage.objects;
+create policy "business_images_auth_upload" on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'business-images'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+drop policy if exists "business_images_owner_update" on storage.objects;
+create policy "business_images_owner_update" on storage.objects
+  for update using (
+    bucket_id = 'business-images'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+drop policy if exists "business_images_owner_delete" on storage.objects;
+create policy "business_images_owner_delete" on storage.objects
+  for delete using (
+    bucket_id = 'business-images'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
 -- ─── Bootstrap first admin (run AFTER you create the auth user) ──
 -- 1. Sign up in the app or Auth → Users with email admin@naijapass.ng
 -- 2. Then run:
@@ -731,3 +879,4 @@ end $$;
 --
 -- ─── Next: the 37 state government logins ──────────────────
 -- Run supabase/govt-accounts.sql, then supabase/seed.sql.
+-- Business bidding + contract publishing is included above (tender_bids, publisher_type).

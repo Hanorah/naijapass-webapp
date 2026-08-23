@@ -6,6 +6,8 @@ import {
   type DirectoryCategory,
 } from "@/data/businesses";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { BUSINESSES_CHANGED_EVENT } from "@/lib/db/businessEvents";
+import { normalizeDashboardState } from "@/lib/dashboardState";
 
 export type BusinessSource = "loading" | "database" | "seed";
 
@@ -75,6 +77,57 @@ async function fetchAllBusinesses() {
   return { rows: rows.map(rowToBusiness), error: null };
 }
 
+async function fetchBusinessById(id: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("businesses")
+    .select(BUSINESS_COLUMNS)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) return { business: null as Business | null, error: error.message };
+  if (!data) return { business: null, error: null };
+  return { business: rowToBusiness(data as BusinessRow), error: null };
+}
+
+export function useBusinessProfile(id: string) {
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [loading, setLoading] = useState(Boolean(id));
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!id) {
+      setBusiness(null);
+      setLoading(false);
+      return;
+    }
+    if (!isSupabaseConfigured()) {
+      setBusiness(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const result = await fetchBusinessById(id);
+    setBusiness(result.business);
+    setError(result.error);
+    setLoading(false);
+  }, [id]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    const onChanged = () => {
+      void load();
+    };
+    window.addEventListener(BUSINESSES_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(BUSINESSES_CHANGED_EVENT, onChanged);
+  }, [load]);
+
+  return { business, loading, error, reload: load };
+}
+
 
 export function useBusinesses(state?: string) {
   const [dbRows, setDbRows] = useState<Business[] | null>(null);
@@ -99,10 +152,17 @@ export function useBusinesses(state?: string) {
       setError(result.error);
       setSettled(true);
     })();
+
+    const onChanged = () => {
+      void load();
+    };
+    window.addEventListener(BUSINESSES_CHANGED_EVENT, onChanged);
+
     return () => {
       active = false;
+      window.removeEventListener(BUSINESSES_CHANGED_EVENT, onChanged);
     };
-  }, []);
+  }, [load]);
 
   const allBusinesses = useMemo(() => {
     if (!isSupabaseConfigured()) return [];
@@ -112,7 +172,10 @@ export function useBusinesses(state?: string) {
 
   const businesses = useMemo(() => {
     if (!state) return allBusinesses;
-    return allBusinesses.filter((b) => b.state === state);
+    const normalized = normalizeDashboardState(state);
+    return allBusinesses.filter(
+      (b) => normalizeDashboardState(b.state) === normalized,
+    );
   }, [allBusinesses, state]);
 
   const source: BusinessSource = !isSupabaseConfigured()

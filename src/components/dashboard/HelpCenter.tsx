@@ -82,7 +82,10 @@ export default function HelpCenter() {
       toast.error("Write a short note so we can help.");
       return;
     }
-    toast.success("Support received — we’ll reply in this portal.");
+    const subject = encodeURIComponent(`NaijaPass help — ${query.trim() || "support"}`);
+    const body = encodeURIComponent(message.trim());
+    window.location.href = `mailto:support@naijapass.ng?subject=${subject}&body=${body}`;
+    toast.success("Opening your email app…");
     setMessage("");
   };
 

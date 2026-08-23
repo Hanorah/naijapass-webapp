@@ -32,7 +32,8 @@ import {
   seedMarketplaceListings,
   type MarketplaceListing,
 } from "@/data/marketplace";
-import { readBids, upsertBid, type TenderBid } from "@/lib/bids";
+import { mergeBids, readBids, upsertBid, writeBids, type TenderBid } from "@/lib/bids";
+import { dbBidToTenderBid } from "@/lib/db/procurement";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
 export type AuthResult = {
@@ -60,7 +61,7 @@ type SessionContextValue = {
   setListingStatus: (id: string, status: MarketplaceListing["status"]) => void;
   tenderBids: TenderBid[];
   submitBid: (bid: TenderBid) => TenderBid;
-  bidForTender: (tenderRef: string) => TenderBid | undefined;
+  bidForTender: (tenderRef: string, tenderId?: string) => TenderBid | undefined;
   projectFeedback: UserProjectFeedback[];
   submitProjectFeedback: (
     input: SubmitProjectFeedbackInput,
@@ -156,6 +157,24 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const hydrateBidsFromDb = useCallback(async () => {
+    if (!isSupabaseConfigured()) return;
+    try {
+      const res = await fetch("/api/tenders/bids");
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        bids?: Array<Parameters<typeof dbBidToTenderBid>[0]>;
+      };
+      if (!data.bids?.length) return;
+      const fromDb = data.bids.map(dbBidToTenderBid);
+      const merged = mergeBids(fromDb, readBids());
+      writeBids(merged);
+      setTenderBids(merged);
+    } catch {
+      /* keep local bids */
+    }
+  }, []);
+
   // Establish who is signed in.
   useEffect(() => {
     let active = true;
@@ -173,6 +192,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setUser(profile);
       setPending(profile ? null : readJson<PendingRegistration>(PENDING_KEY));
       setReady(true);
+      if (profile) void hydrateBidsFromDb();
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
@@ -182,7 +202,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
       if (event === "SIGNED_IN" || event === "USER_UPDATED") {
         void loadProfile().then((profile) => {
-          if (active) setUser(profile);
+          if (active) {
+            setUser(profile);
+            if (profile) void hydrateBidsFromDb();
+          }
         });
       }
     });
@@ -191,7 +214,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       active = false;
       sub.subscription.unsubscribe();
     };
-  }, [supabase, loadProfile]);
+  }, [supabase, loadProfile, hydrateBidsFromDb]);
 
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -477,11 +500,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const bidForTender = useCallback(
-    (tenderRef: string) =>
-      tenderBids.find(
+    (tenderRef: string, tenderId?: string) =>
+      (tenderBids ?? []).find(
         (item) =>
-          item.tenderRef === tenderRef &&
-          item.contactEmail === user?.email,
+          item.contactEmail === user?.email &&
+          ((tenderId && item.tenderId === tenderId) || item.tenderRef === tenderRef),
       ),
     [tenderBids, user?.email],
   );
@@ -541,5 +564,15 @@ export function useSession() {
   if (!ctx) {
     throw new Error("useSession must be used within SessionProvider");
   }
-  return ctx;
+  return {
+    ...ctx,
+    tenderBids: ctx.tenderBids ?? [],
+    submitBid:
+      ctx.submitBid ??
+      ((bid: TenderBid) => {
+        void bid;
+        return bid;
+      }),
+    bidForTender: ctx.bidForTender ?? (() => undefined) as (ref: string, id?: string) => undefined,
+  };
 }

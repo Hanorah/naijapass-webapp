@@ -7,6 +7,9 @@ import {
   type DirectoryCategory,
 } from "@/data/businesses";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { normalizeDashboardState } from "@/lib/dashboardState";
+import { notifyBusinessesChanged } from "@/lib/db/businessEvents";
+import { isStorableImageUrl } from "@/lib/storage/businessImage";
 import { readJson, writeJson } from "@/lib/session";
 
 export type MyBusinessStatus = "none" | "pending" | "live" | "hidden";
@@ -40,9 +43,6 @@ type BusinessRow = {
   year_founded: string | null;
   employees: string | null;
 };
-
-const MY_BUSINESS_COLUMNS =
-  "id, owner_id, name, category, subcategory, state, lga, address, phone, email, website, description, verified, rating, review_count, status, services, image_url, year_founded, employees";
 
 function rowToMyBusiness(row: BusinessRow): MyBusiness {
   return {
@@ -90,6 +90,10 @@ export type SaveMyBusinessInput = {
   employees?: string;
 };
 
+export type SaveMyBusinessOptions = {
+  verified?: boolean;
+};
+
 function readLocalBusiness(ownerKey: string): MyBusiness | null {
   const map = readJson<Record<string, MyBusiness>>(LOCAL_BUSINESS_KEY) ?? {};
   return map[ownerKey] ?? null;
@@ -101,63 +105,34 @@ function writeLocalBusiness(ownerKey: string, business: MyBusiness) {
   writeJson(LOCAL_BUSINESS_KEY, map);
 }
 
-async function fetchMyBusiness(ownerId: string) {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("businesses")
-    .select(MY_BUSINESS_COLUMNS)
-    .eq("owner_id", ownerId)
-    .maybeSingle();
-
-  if (error) return { business: null as MyBusiness | null, error: error.message };
-  if (!data) return { business: null, error: null };
-  return { business: rowToMyBusiness(data as BusinessRow), error: null };
+async function fetchMyBusinessRemote() {
+  const res = await fetch("/api/businesses/upsert", { method: "GET" });
+  const body = (await res.json()) as { business?: BusinessRow; error?: string };
+  if (!res.ok) return { business: null as MyBusiness | null, error: body.error ?? "Could not load business." };
+  if (!body.business) return { business: null, error: null };
+  return { business: rowToMyBusiness(body.business), error: null };
 }
 
 async function saveMyBusinessRemote(
-  ownerId: string,
-  ownerEmail: string,
   existingId: string | undefined,
   input: SaveMyBusinessInput,
+  options: SaveMyBusinessOptions = {},
 ) {
-  const supabase = createClient();
-  const payload = {
-    owner_id: ownerId,
-    name: input.name.trim(),
-    category: input.category,
-    subcategory: input.subcategory.trim(),
-    state: input.state,
-    lga: input.lga,
-    address: input.address?.trim() || null,
-    phone: input.phone?.trim() || null,
-    email: input.email?.trim() || ownerEmail,
-    website: input.website?.trim() || null,
-    description: input.description?.trim() || null,
-    services: input.services ?? [],
-    image_url: input.image || null,
-    year_founded: input.yearFounded?.trim() || null,
-    employees: input.employees?.trim() || null,
-    status: "pending",
-  };
-
-  if (existingId) {
-    const { data, error } = await supabase
-      .from("businesses")
-      .update(payload)
-      .eq("id", existingId)
-      .select(MY_BUSINESS_COLUMNS)
-      .single();
-    if (error) return { business: null as MyBusiness | null, error: error.message };
-    return { business: rowToMyBusiness(data as BusinessRow), error: null };
+  const res = await fetch("/api/businesses/upsert", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: existingId,
+      ...input,
+      verified: Boolean(options.verified),
+      image: input.image && isStorableImageUrl(input.image) ? input.image : undefined,
+    }),
+  });
+  const body = (await res.json()) as { business?: BusinessRow; error?: string };
+  if (!res.ok || !body.business) {
+    return { business: null as MyBusiness | null, error: body.error ?? "Could not save business." };
   }
-
-  const { data, error } = await supabase
-    .from("businesses")
-    .insert(payload)
-    .select(MY_BUSINESS_COLUMNS)
-    .single();
-  if (error) return { business: null, error: error.message };
-  return { business: rowToMyBusiness(data as BusinessRow), error: null };
+  return { business: rowToMyBusiness(body.business), error: null };
 }
 
 export function useMyBusiness(userId?: string, userEmail?: string) {
@@ -174,7 +149,7 @@ export function useMyBusiness(userId?: string, userEmail?: string) {
     }
     setLoading(true);
     if (isSupabaseConfigured() && userId) {
-      const result = await fetchMyBusiness(userId);
+      const result = await fetchMyBusinessRemote();
       setBusiness(result.business);
       setError(result.error);
     } else {
@@ -189,17 +164,15 @@ export function useMyBusiness(userId?: string, userEmail?: string) {
   }, [load]);
 
   const save = useCallback(
-    async (input: SaveMyBusinessInput) => {
+    async (input: SaveMyBusinessInput, options: SaveMyBusinessOptions = {}) => {
       if (!ownerKey) return { business: null, error: "Not signed in." };
 
       if (isSupabaseConfigured() && userId && userEmail) {
-        const result = await saveMyBusinessRemote(
-          userId,
-          userEmail,
-          business?.id,
-          input,
-        );
-        if (result.business) setBusiness(result.business);
+        const result = await saveMyBusinessRemote(business?.id, input, options);
+        if (result.business) {
+          setBusiness(result.business);
+          notifyBusinessesChanged();
+        }
         setError(result.error);
         return result;
       }
@@ -213,25 +186,26 @@ export function useMyBusiness(userId?: string, userEmail?: string) {
         reviews: business?.reviews ?? 0,
         address: input.address?.trim() ?? "",
         lga: input.lga,
-        state: input.state,
+        state: normalizeDashboardState(input.state),
         hours: "Hours not listed",
         openNow: true,
-        verified: false,
+        verified: Boolean(options.verified),
         pos: false,
         tags: input.services ?? [],
         phone: input.phone?.trim() ?? "",
-        image: input.image ?? "",
+        image: input.image && isStorableImageUrl(input.image) ? input.image : "",
         description: input.description?.trim(),
         email: input.email?.trim() || userEmail,
         website: input.website?.trim(),
         services: input.services,
         yearFounded: input.yearFounded,
         employees: input.employees,
-        status: "pending",
+        status: "live",
         ownerId: userId,
       };
       writeLocalBusiness(ownerKey, saved);
       setBusiness(saved);
+      notifyBusinessesChanged();
       return { business: saved, error: null };
     },
     [business, ownerKey, userEmail, userId],
@@ -242,20 +216,30 @@ export function useMyBusiness(userId?: string, userEmail?: string) {
       if (!business) return { error: "No business profile yet." };
       if (isSupabaseConfigured() && userId) {
         const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return { error: "Sign in required." };
+
         const { data, error } = await supabase
           .from("businesses")
           .update({ status })
           .eq("id", business.id)
-          .select(MY_BUSINESS_COLUMNS)
+          .eq("owner_id", user.id)
+          .select(
+            "id, owner_id, name, category, subcategory, state, lga, address, phone, email, website, description, verified, rating, review_count, status, services, image_url, year_founded, employees",
+          )
           .single();
         if (error) return { error: error.message };
         const next = rowToMyBusiness(data as BusinessRow);
         setBusiness(next);
+        notifyBusinessesChanged();
         return { business: next, error: null };
       }
       const next = { ...business, status };
       writeLocalBusiness(ownerKey, next);
       setBusiness(next);
+      notifyBusinessesChanged();
       return { business: next, error: null };
     },
     [business, ownerKey, userId],

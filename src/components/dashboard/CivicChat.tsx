@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { formatChatReply } from "@/lib/chatFormat";
 
 const starters = [
   "Emergency numbers",
@@ -23,7 +24,17 @@ export default function CivicChat() {
   const [messages, setMessages] = useState<
     { role: "user" | "assistant"; text: string }[]
   >([]);
+  const [loadingHint, setLoadingHint] = useState("One moment…");
   const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!loading) {
+      setLoadingHint("One moment…");
+      return;
+    }
+    const slow = window.setTimeout(() => setLoadingHint("Still thinking…"), 4000);
+    return () => window.clearTimeout(slow);
+  }, [loading]);
 
   useEffect(() => {
     setMessages([
@@ -49,6 +60,9 @@ export default function CivicChat() {
     setLoading(true);
 
     try {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 20_000);
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -57,15 +71,27 @@ export default function CivicChat() {
           state: selectedState,
           history: messages,
         }),
+        signal: controller.signal,
       });
-      const data = (await res.json()) as { reply: string };
-      setMessages((prev) => [...prev, { role: "assistant", text: data.reply }]);
+      window.clearTimeout(timeoutId);
+
+      const data = (await res.json()) as { reply?: string };
+      const reply = formatChatReply(data.reply?.trim() || "");
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          text:
+            reply ||
+            "I couldn't get an answer just now. Try emergency numbers, open tenders, or who is the governor.",
+        },
+      ]);
     } catch {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          text: "Couldn't reach the server. Check your connection and try again.",
+          text: "That took too long or the connection dropped. Try one of the quick suggestions below.",
         },
       ]);
     } finally {
@@ -155,13 +181,13 @@ export default function CivicChat() {
                     : "mr-auto bg-[#f4f6f8] text-navy",
                 )}
               >
-                {m.text}
+                {formatChatReply(m.text)}
               </div>
             ))}
             {loading && (
               <div className="mr-auto flex items-center gap-2 rounded-2xl bg-[#f4f6f8] px-3.5 py-2.5 text-sm text-slate">
                 <Loader2 className="h-4 w-4 animate-spin text-forest" />
-                One moment…
+                {loadingHint}
               </div>
             )}
           </div>

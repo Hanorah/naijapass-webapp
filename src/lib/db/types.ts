@@ -204,11 +204,13 @@ export type TenderRow = {
   contact_email: string | null;
   document_url: string | null;
   submitted_by: string | null;
+  publisher_type?: "govt" | "business" | "federal" | null;
+  business_id?: string | null;
   created_at: string;
 };
 
 export const TENDER_COLUMNS =
-  "id, title, reference, mda, state, sector, value, currency, deadline, status, description, source, published_at, lga, contact_email, document_url, submitted_by, created_at";
+  "id, title, reference, mda, state, sector, value, currency, deadline, status, description, source, published_at, lga, contact_email, document_url, submitted_by, publisher_type, business_id, created_at";
 
 // ─── Citizen feedback ──────────────────────────────────────
 

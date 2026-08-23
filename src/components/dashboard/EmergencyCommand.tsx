@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import toast from "react-hot-toast";
 import {
   Ambulance,
   CarFront,
@@ -95,13 +94,12 @@ export default function EmergencyCommand() {
                     <p className="text-xs text-slate">Dial 112 or 767</p>
                   </span>
                 </span>
-                <button
-                  type="button"
-                  onClick={() => toast.success("112 — national emergency line")}
-                  className="rounded-full bg-mist px-3 py-1.5 text-xs font-semibold"
+                <a
+                  href="tel:112"
+                  className="rounded-full bg-mist px-3 py-1.5 text-xs font-semibold text-navy hover:bg-white"
                 >
-                  Call
-                </button>
+                  Call 112
+                </a>
               </li>
               <li className="flex items-center justify-between gap-3">
                 <span className="inline-flex items-center gap-3">
@@ -142,14 +140,21 @@ export default function EmergencyCommand() {
               Use verified channels for fires, accidents, and security incidents in{" "}
               {selectedState}.
             </p>
-            <button
-              type="button"
-              onClick={() => toast.success("Incident report logged locally for demo.")}
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-forest px-4 py-3 text-sm font-semibold text-white"
-            >
-              <Phone className="h-4 w-4" />
-              Report now
-            </button>
+            <div className="mt-4 grid gap-2">
+              <a
+                href="tel:112"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-forest px-4 py-3 text-sm font-semibold text-white hover:bg-forest-hover"
+              >
+                <Phone className="h-4 w-4" />
+                Call 112 now
+              </a>
+              <Link
+                href="/dashboard/hub"
+                className="inline-flex w-full items-center justify-center rounded-xl border border-white/20 px-4 py-3 text-sm font-semibold text-white hover:bg-white/10"
+              >
+                Open {selectedState} emergency notices
+              </Link>
+            </div>
           </section>
         </div>
       </div>

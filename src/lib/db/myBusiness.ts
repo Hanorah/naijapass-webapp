@@ -6,7 +6,7 @@ import {
   type Business,
   type DirectoryCategory,
 } from "@/data/businesses";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { apiFetch, isApiConfigured } from "@/lib/api/client";
 import { normalizeDashboardState } from "@/lib/dashboardState";
 import { notifyBusinessesChanged } from "@/lib/db/businessEvents";
 import { isStorableImageUrl } from "@/lib/storage/businessImage";
@@ -106,11 +106,20 @@ function writeLocalBusiness(ownerKey: string, business: MyBusiness) {
 }
 
 async function fetchMyBusinessRemote() {
-  const res = await fetch("/api/businesses/upsert", { method: "GET" });
-  const body = (await res.json()) as { business?: BusinessRow; error?: string };
-  if (!res.ok) return { business: null as MyBusiness | null, error: body.error ?? "Could not load business." };
-  if (!body.business) return { business: null, error: null };
-  return { business: rowToMyBusiness(body.business), error: null };
+  if (isApiConfigured()) {
+    try {
+      const body = await apiFetch<{ business?: BusinessRow | null }>("/api/businesses/mine");
+      if (!body.business) return { business: null, error: null };
+      return { business: rowToMyBusiness(body.business), error: null };
+    } catch (err) {
+      return {
+        business: null as MyBusiness | null,
+        error: err instanceof Error ? err.message : "Could not load business.",
+      };
+    }
+  }
+
+  return { business: null as MyBusiness | null, error: "API is not configured." };
 }
 
 async function saveMyBusinessRemote(
@@ -118,21 +127,32 @@ async function saveMyBusinessRemote(
   input: SaveMyBusinessInput,
   options: SaveMyBusinessOptions = {},
 ) {
-  const res = await fetch("/api/businesses/upsert", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      id: existingId,
-      ...input,
-      verified: Boolean(options.verified),
-      image: input.image && isStorableImageUrl(input.image) ? input.image : undefined,
-    }),
-  });
-  const body = (await res.json()) as { business?: BusinessRow; error?: string };
-  if (!res.ok || !body.business) {
-    return { business: null as MyBusiness | null, error: body.error ?? "Could not save business." };
+  const payload = {
+    id: existingId,
+    ...input,
+    verified: Boolean(options.verified),
+    image: input.image && isStorableImageUrl(input.image) ? input.image : undefined,
+  };
+
+  if (isApiConfigured()) {
+    try {
+      const body = await apiFetch<{ business?: BusinessRow }>("/api/businesses", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!body.business) {
+        return { business: null as MyBusiness | null, error: "Could not save business." };
+      }
+      return { business: rowToMyBusiness(body.business), error: null };
+    } catch (err) {
+      return {
+        business: null as MyBusiness | null,
+        error: err instanceof Error ? err.message : "Could not save business.",
+      };
+    }
   }
-  return { business: rowToMyBusiness(body.business), error: null };
+
+  return { business: null as MyBusiness | null, error: "API is not configured." };
 }
 
 export function useMyBusiness(userId?: string, userEmail?: string) {
@@ -148,7 +168,7 @@ export function useMyBusiness(userId?: string, userEmail?: string) {
       return;
     }
     setLoading(true);
-    if (isSupabaseConfigured() && userId) {
+    if (isApiConfigured() && userId) {
       const result = await fetchMyBusinessRemote();
       setBusiness(result.business);
       setError(result.error);
@@ -167,7 +187,7 @@ export function useMyBusiness(userId?: string, userEmail?: string) {
     async (input: SaveMyBusinessInput, options: SaveMyBusinessOptions = {}) => {
       if (!ownerKey) return { business: null, error: "Not signed in." };
 
-      if (isSupabaseConfigured() && userId && userEmail) {
+      if (isApiConfigured() && userId && userEmail) {
         const result = await saveMyBusinessRemote(business?.id, input, options);
         if (result.business) {
           setBusiness(result.business);
@@ -214,28 +234,26 @@ export function useMyBusiness(userId?: string, userEmail?: string) {
   const setVisibility = useCallback(
     async (status: "live" | "hidden") => {
       if (!business) return { error: "No business profile yet." };
-      if (isSupabaseConfigured() && userId) {
-        const supabase = createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) return { error: "Sign in required." };
-
-        const { data, error } = await supabase
-          .from("businesses")
-          .update({ status })
-          .eq("id", business.id)
-          .eq("owner_id", user.id)
-          .select(
-            "id, owner_id, name, category, subcategory, state, lga, address, phone, email, website, description, verified, rating, review_count, status, services, image_url, year_founded, employees",
-          )
-          .single();
-        if (error) return { error: error.message };
-        const next = rowToMyBusiness(data as BusinessRow);
-        setBusiness(next);
-        notifyBusinessesChanged();
-        return { business: next, error: null };
+      if (isApiConfigured() && userId) {
+        try {
+          const body = await apiFetch<{ business?: BusinessRow }>(
+            `/api/businesses/${encodeURIComponent(business.id)}/status`,
+            { method: "PATCH", body: JSON.stringify({ status }) },
+          );
+          const saved = body.business
+            ? rowToMyBusiness(body.business)
+            : ({ ...business, status } as MyBusiness);
+          setBusiness(saved);
+          notifyBusinessesChanged();
+          return { business: saved, error: null };
+        } catch (err) {
+          return {
+            business: null as MyBusiness | null,
+            error: err instanceof Error ? err.message : "Could not update visibility.",
+          };
+        }
       }
+      // Offline: visibility is kept on this device only.
       const next = { ...business, status };
       writeLocalBusiness(ownerKey, next);
       setBusiness(next);

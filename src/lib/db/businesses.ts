@@ -7,7 +7,8 @@ import {
   type Business,
   type DirectoryCategory,
 } from "@/data/businesses";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { apiFetch, isApiConfigured } from "@/lib/api/client";
+import { isLiveBackend } from "@/lib/backend";
 import { BUSINESSES_CHANGED_EVENT } from "@/lib/db/businessEvents";
 import { normalizeDashboardState } from "@/lib/dashboardState";
 import { pexelsImageForKey } from "@/lib/pexelsImages";
@@ -35,9 +36,6 @@ type BusinessRow = {
   year_founded: string | null;
   employees: string | null;
 };
-
-const BUSINESS_COLUMNS =
-  "id, name, category, subcategory, state, lga, address, phone, email, website, description, verified, rating, review_count, status, services, image_url, year_founded, employees";
 
 export type LiveBusiness = Business & { listingStatus?: string };
 
@@ -80,33 +78,42 @@ function rowToBusiness(row: BusinessRow): LiveBusiness {
 }
 
 async function fetchAllBusinesses(liveOnly = true) {
-  const supabase = createClient();
-  let query = supabase
-    .from("businesses")
-    .select(BUSINESS_COLUMNS)
-    .order("updated_at", { ascending: false });
+  if (isApiConfigured()) {
+    try {
+      const data = await apiFetch<{ businesses?: BusinessRow[] }>("/api/businesses", {
+        anonymous: true,
+      });
+      let rows = (data.businesses ?? []).map(rowToBusiness);
+      if (liveOnly) rows = rows.filter((b) => b.listingStatus === "live");
+      return { rows, error: null };
+    } catch (err) {
+      return {
+        rows: null as LiveBusiness[] | null,
+        error: err instanceof Error ? err.message : "Could not load businesses.",
+      };
+    }
+  }
 
-  if (liveOnly) query = query.eq("status", "live");
-
-  const { data, error } = await query;
-
-  if (error) return { rows: null as LiveBusiness[] | null, error: error.message };
-
-  const rows = (data ?? []) as BusinessRow[];
-  return { rows: rows.map(rowToBusiness), error: null };
+  return { rows: [] as LiveBusiness[], error: "API is not configured." };
 }
 
 async function fetchBusinessById(id: string) {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("businesses")
-    .select(BUSINESS_COLUMNS)
-    .eq("id", id)
-    .maybeSingle();
+  if (isApiConfigured()) {
+    try {
+      const data = await apiFetch<{ business?: BusinessRow }>(`/api/businesses/${id}`, {
+        anonymous: true,
+      });
+      if (!data.business) return { business: null, error: null };
+      return { business: rowToBusiness(data.business), error: null };
+    } catch (err) {
+      return {
+        business: null as LiveBusiness | null,
+        error: err instanceof Error ? err.message : "Could not load business.",
+      };
+    }
+  }
 
-  if (error) return { business: null as LiveBusiness | null, error: error.message };
-  if (!data) return { business: null, error: null };
-  return { business: rowToBusiness(data as BusinessRow), error: null };
+  return { business: null as LiveBusiness | null, error: "API is not configured." };
 }
 
 export function useBusinessProfile(id: string) {
@@ -115,7 +122,7 @@ export function useBusinessProfile(id: string) {
     [id],
   );
   const [business, setBusiness] = useState<Business | null>(fallback);
-  const [loading, setLoading] = useState(Boolean(id) && isSupabaseConfigured());
+  const [loading, setLoading] = useState(Boolean(id) && isLiveBackend());
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -124,7 +131,7 @@ export function useBusinessProfile(id: string) {
       setLoading(false);
       return;
     }
-    if (!isSupabaseConfigured()) {
+    if (!isLiveBackend()) {
       setBusiness(fallback);
       setLoading(false);
       return;
@@ -157,11 +164,11 @@ export function useBusinesses(
 ) {
   const includeAllStatuses = options.includeAllStatuses ?? false;
   const [dbRows, setDbRows] = useState<LiveBusiness[] | null>(null);
-  const [settled, setSettled] = useState(!isSupabaseConfigured());
+  const [settled, setSettled] = useState(!isLiveBackend());
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!isSupabaseConfigured()) return;
+    if (!isLiveBackend()) return;
     const result = await fetchAllBusinesses(!includeAllStatuses);
     setDbRows(result.rows);
     setError(result.error);
@@ -169,7 +176,7 @@ export function useBusinesses(
   }, [includeAllStatuses]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) return;
+    if (!isLiveBackend()) return;
     let active = true;
     void (async () => {
       const result = await fetchAllBusinesses(!includeAllStatuses);
@@ -191,7 +198,7 @@ export function useBusinesses(
   }, [load, includeAllStatuses]);
 
   const allBusinesses = useMemo(() => {
-    if (!isSupabaseConfigured()) return seedAsLive;
+    if (!isLiveBackend()) return seedAsLive;
     if (dbRows === null) return seedAsLive;
     return mergeBusinesses(dbRows, seedAsLive);
   }, [dbRows]);
@@ -218,6 +225,6 @@ export function useBusinesses(
     source,
     error,
     reload: load,
-    loading: isSupabaseConfigured() && !settled,
+    loading: isLiveBackend() && !settled,
   };
 }

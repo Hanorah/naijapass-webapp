@@ -107,7 +107,7 @@ export default function AdminOverviewPage() {
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-slate">
           Nationwide projects, accounts, tenders, and marketplace. Counts refresh
-          from Supabase when connected ({formatBudgetLabel(statusCounts.budget)}{" "}
+          from the API when connected ({formatBudgetLabel(statusCounts.budget)}{" "}
           published project budget · {govtAccounts} state portal accounts).
         </p>
       </div>

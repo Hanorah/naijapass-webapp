@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { projects as seedProjects } from "@/data/projects";
 import { normalizeDashboardState } from "@/lib/dashboardState";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { apiFetch, isApiConfigured } from "@/lib/api/client";
+import { isLiveBackend } from "@/lib/backend";
 import {
   rowToProject,
   type LiveProject,
@@ -13,10 +14,6 @@ import {
 
 /** Where the projects on screen came from. */
 export type ProjectSource = "loading" | "database" | "seed" | "mixed";
-
-/** Safe column list — avoids hard-failing if a newer column is missing. */
-const SELECT_COLUMNS =
-  "id, title, category, description, budget_ngn, budget_label, state, lga, status, contractor, completion, reports_count, featured, era, supervising_agency, source_title, source_url, image_url, notes, published, review_status, start_date, expected_completion, submitted_by, created_at, updated_at";
 
 const seedAsLive: LiveProject[] = seedProjects.map((project) => ({
   ...project,
@@ -68,58 +65,29 @@ function mapRows(data: ProjectRow[] | null): LiveProject[] {
 }
 
 async function fetchProjects({ state, includeDrafts }: Options): Promise<Result> {
-  const supabase = createClient();
-
-  // Do not filter review_status in SQL — null/missing values are common after
-  // seed and would hide every row. Visibility is applied client-side instead.
-  let query = supabase
-    .from("projects")
-    .select(SELECT_COLUMNS)
-    .order("updated_at", { ascending: false })
-    .limit(5000);
-
-  const { data, error } = await query;
-
-  if (error) {
-    // Retry with a minimal column set if the schema is behind the app.
-    const retry = await supabase
-      .from("projects")
-      .select(
-        "id, title, category, description, budget_ngn, budget_label, state, lga, status, contractor, completion, reports_count, featured, era, supervising_agency, source_title, published, created_at, updated_at",
-      )
-      .order("updated_at", { ascending: false })
-      .limit(5000);
-
-    if (retry.error) {
-      return { rows: [], error: retry.error.message || error.message };
+  if (isApiConfigured()) {
+    try {
+      const qs = state ? `?state=${encodeURIComponent(state)}` : "";
+      const data = await apiFetch<{ projects?: ProjectRow[] }>(`/api/projects${qs}`, {
+        anonymous: !includeDrafts,
+      });
+      let rows = mapRows(data.projects ?? null);
+      if (!includeDrafts) rows = rows.filter(isVisiblePublished);
+      if (state) rows = rows.filter((project) => sameState(project.state, state));
+      return { rows, error: null };
+    } catch (err) {
+      return {
+        rows: [],
+        error: err instanceof Error ? err.message : "Could not load projects.",
+      };
     }
-
-    let rows = mapRows(
-      (retry.data ?? []).map((row) => ({
-        ...(row as ProjectRow),
-        review_status: "published" as ReviewStatus,
-        source_url: null,
-        image_url: null,
-        notes: null,
-        start_date: null,
-        expected_completion: null,
-        submitted_by: null,
-      })),
-    );
-
-    if (!includeDrafts) rows = rows.filter(isVisiblePublished);
-    if (state) rows = rows.filter((project) => sameState(project.state, state));
-    return { rows, error: null };
   }
 
-  let rows = mapRows(data as ProjectRow[] | null);
-  if (!includeDrafts) rows = rows.filter(isVisiblePublished);
-  if (state) rows = rows.filter((project) => sameState(project.state, state));
-  return { rows, error: null };
+  return { rows: [], error: "API is not configured." };
 }
 
 /**
- * Reads projects from Supabase and merges catalogue rows for the same scope
+ * Reads projects from the Express API and merges catalogue rows for the same scope
  * so a portal never looks empty when only part of the DB is populated.
  */
 export function useProjects(options: Options = {}) {
@@ -128,7 +96,7 @@ export function useProjects(options: Options = {}) {
     ? normalizeDashboardState(state)
     : undefined;
   const [dbRows, setDbRows] = useState<LiveProject[] | null>(null);
-  const [settled, setSettled] = useState(!isSupabaseConfigured());
+  const [settled, setSettled] = useState(!isLiveBackend());
   const [error, setError] = useState<string | null>(null);
 
   const fallback = useMemo(
@@ -137,7 +105,7 @@ export function useProjects(options: Options = {}) {
   );
 
   const load = useCallback(async () => {
-    if (!isSupabaseConfigured()) return;
+    if (!isLiveBackend()) return;
     const result = await fetchProjects({
       state: normalizedState,
       includeDrafts,
@@ -148,7 +116,7 @@ export function useProjects(options: Options = {}) {
   }, [normalizedState, includeDrafts]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) return;
+    if (!isLiveBackend()) return;
 
     let active = true;
 
@@ -163,31 +131,13 @@ export function useProjects(options: Options = {}) {
       setSettled(true);
     })();
 
-    const supabase = createClient();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "TOKEN_REFRESHED") return;
-      void (async () => {
-        const result = await fetchProjects({
-          state: normalizedState,
-          includeDrafts,
-        });
-        if (!active) return;
-        setDbRows(result.rows);
-        setError(result.error);
-        setSettled(true);
-      })();
-    });
-
     return () => {
       active = false;
-      subscription.unsubscribe();
     };
   }, [normalizedState, includeDrafts]);
 
   const projects = useMemo(() => {
-    if (!isSupabaseConfigured()) return fallback;
+    if (!isLiveBackend()) return fallback;
     if (dbRows === null) return fallback;
     return mergeProjects(dbRows, fallback);
   }, [dbRows, fallback]);
@@ -206,7 +156,7 @@ export function useProjects(options: Options = {}) {
 /** Single project by id, with the same seed fallback. */
 export function useProject(id: string | undefined) {
   const [row, setRow] = useState<LiveProject | null>(null);
-  const [loading, setLoading] = useState(Boolean(id) && isSupabaseConfigured());
+  const [loading, setLoading] = useState(Boolean(id) && isLiveBackend());
 
   const fallback = useMemo(
     () => (id ? (seedAsLive.find((project) => project.id === id) ?? null) : null),
@@ -214,21 +164,28 @@ export function useProject(id: string | undefined) {
   );
 
   useEffect(() => {
-    if (!id || !isSupabaseConfigured()) return;
+    if (!id || !isLiveBackend()) return;
 
     let active = true;
 
     void (async () => {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("projects")
-        .select(SELECT_COLUMNS)
-        .eq("id", id)
-        .maybeSingle();
+      if (isApiConfigured()) {
+        try {
+          const data = await apiFetch<{ project?: ProjectRow }>(`/api/projects/${id}`, {
+            anonymous: true,
+          });
+          if (!active) return;
+          setRow(data.project ? mapRows([data.project])[0] ?? null : null);
+        } catch {
+          if (!active) return;
+          setRow(null);
+        } finally {
+          if (active) setLoading(false);
+        }
+        return;
+      }
 
-      if (!active) return;
-      setRow(data ? mapRows([data as ProjectRow])[0] ?? null : null);
-      setLoading(false);
+      if (active) setLoading(false);
     })();
 
     return () => {

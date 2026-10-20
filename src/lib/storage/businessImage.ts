@@ -1,6 +1,5 @@
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { apiFetch, getToken, isApiConfigured } from "@/lib/api/client";
 
-const BUCKET = "business-images";
 const MAX_INLINE_BYTES = 120_000;
 
 /** Resize/compress in the browser so uploads stay fast. */
@@ -40,26 +39,9 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
-async function ensureBusinessImageBucket() {
-  const res = await fetch("/api/business-images/ensure", { method: "POST" });
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { error?: string } | null;
-    return body?.error ?? "Could not prepare image storage.";
-  }
-  return null;
-}
-
-async function uploadBlob(userId: string, blob: Blob) {
-  const supabase = createClient();
-  const path = `${userId}/${Date.now()}.jpg`;
-  const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, blob, {
-    contentType: "image/jpeg",
-    upsert: true,
-    cacheControl: "3600",
-  });
-  if (uploadError) return { url: null as string | null, error: uploadError.message };
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return { url: data.publicUrl, error: null as string | null };
+/** No remote bucket any more: images are stored inline as data URLs. */
+export async function ensureBusinessImagesBucket(): Promise<{ ok: true; error: null }> {
+  return { ok: true, error: null };
 }
 
 async function inlineFallback(blob: Blob) {
@@ -73,7 +55,7 @@ async function inlineFallback(blob: Blob) {
       return {
         url: null,
         error:
-          "Photo is too large without storage. Save without a photo, or ask an admin to enable the business-images bucket.",
+          "Photo is too large. Try a smaller image, or save without a photo.",
       };
     }
     return { url: await blobToDataUrl(smaller), error: null };
@@ -85,44 +67,25 @@ export async function uploadBusinessImage(
   userId: string,
   file: File,
 ): Promise<{ url: string | null; error: string | null }> {
-  if (!isSupabaseConfigured()) {
-    return { url: null, error: "Storage is not configured." };
-  }
-
+  void userId;
   try {
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    const authId = user?.id ?? userId;
-    if (!authId) {
-      return { url: null, error: "Sign in required to upload photos." };
-    }
-
     const blob = await compressImageFile(file);
-    let result = await uploadBlob(authId, blob);
 
-    if (result.error && /bucket not found/i.test(result.error)) {
-      const ensureError = await ensureBusinessImageBucket();
-      if (!ensureError) {
-        result = await uploadBlob(authId, blob);
+    if (isApiConfigured() && getToken()) {
+      try {
+        const form = new FormData();
+        form.append("file", blob, "photo.jpg");
+        const body = await apiFetch<{ url?: string }>("/api/uploads", {
+          method: "POST",
+          body: form,
+        });
+        if (body.url) return { url: body.url, error: null };
+      } catch {
+        /* fall back to an inline data URL below */
       }
     }
 
-    if (result.url) return result;
-
-    if (result.error && /bucket not found/i.test(result.error)) {
-      const fallback = await inlineFallback(blob);
-      if (fallback.url) {
-        return {
-          url: fallback.url,
-          error: null,
-        };
-      }
-      return fallback;
-    }
-
-    return result;
+    return await inlineFallback(blob);
   } catch (err) {
     return {
       url: null,

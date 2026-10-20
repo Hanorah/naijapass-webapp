@@ -8,7 +8,23 @@ import FileDropzone from "@/components/FileDropzone";
 import NaijaPassMark from "@/components/NaijaPassMark";
 import { useSession } from "@/components/SessionProvider";
 import { businessTypes } from "@/data/marketplace";
+import { apiFetch, isApiConfigured } from "@/lib/api/client";
 import { safeReturnPath } from "@/lib/returnUrl";
+
+async function postKyc(body: Record<string, unknown>) {
+  if (isApiConfigured()) {
+    return apiFetch<{ verified?: boolean; error?: string }>("/api/kyc/verify", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+  const res = await fetch("/api/kyc/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return (await res.json()) as { verified?: boolean; error?: string };
+}
 
 export default function KycFlow() {
   const router = useRouter();
@@ -109,24 +125,19 @@ function IndividualForm({ onDone }: { onDone: () => void }) {
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/kyc/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "individual",
-          nin: nin.trim(),
-          firstName: first.trim(),
-          lastName: last.trim(),
-        }),
+      const data = await postKyc({
+        type: "individual",
+        nin: nin.trim(),
+        firstName: first.trim(),
+        lastName: last.trim(),
       });
-      const data = (await res.json()) as { verified?: boolean; error?: string };
-      if (!res.ok || !data.verified) {
+      if (!data.verified) {
         toast.error(data.error ?? "Verification failed.");
         return;
       }
       onDone();
-    } catch {
-      toast.error("Could not reach verification service.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not reach verification service.");
     } finally {
       setSubmitting(false);
     }
@@ -263,24 +274,19 @@ function BusinessForm({
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/kyc/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "business",
-          rcNumber: rc.trim(),
-          tin: tin.trim(),
-          businessName: businessName.trim(),
-        }),
+      const data = await postKyc({
+        type: "business",
+        rcNumber: rc.trim(),
+        tin: tin.trim(),
+        businessName: businessName.trim(),
       });
-      const data = (await res.json()) as { verified?: boolean; error?: string };
-      if (!res.ok || !data.verified) {
+      if (!data.verified) {
         toast.error(data.error ?? "Verification failed.");
         return;
       }
       onDone({ businessType, rcNumber: rc.trim() });
-    } catch {
-      toast.error("Could not reach verification service.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not reach verification service.");
     } finally {
       setSubmitting(false);
     }

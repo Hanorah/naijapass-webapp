@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import toast from "react-hot-toast";
 import { KeyRound, Lock, ShieldCheck } from "lucide-react";
 import { useSession } from "@/components/SessionProvider";
+import { apiChangePassword } from "@/lib/api/client";
 import {
   Field,
   GhostButton,
@@ -14,10 +15,10 @@ import {
   PrimaryButton,
   fieldClass,
 } from "@/components/govt/ui";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+
 
 export default function GovtSettings() {
-  const { user, live, refresh } = useSession();
+  const { user, live, saveProfile } = useSession();
   const state = user?.govtState ?? user?.state ?? "";
 
   const [officeName, setOfficeName] = useState(user?.name ?? "");
@@ -25,35 +26,30 @@ export default function GovtSettings() {
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [savingProfile, setSavingProfile] = useState(false);
 
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
 
   const onSaveProfile = async (e: FormEvent) => {
     e.preventDefault();
-    if (!isSupabaseConfigured() || !user?.id) {
-      toast.error("Connect a Supabase database first.");
+    if (!user) {
+      toast.error("Sign in first.");
       return;
     }
 
     setSavingProfile(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name: officeName.trim(),
-          department: department.trim() || null,
-          phone: phone.trim() || null,
-        })
-        .eq("id", user.id);
-
-      if (error) {
-        toast.error(error.message);
+      const result = await saveProfile({
+        name: officeName.trim(),
+        department: department.trim() || undefined,
+        phone: phone.trim(),
+      });
+      if (result.error) {
+        toast.error(result.error);
         return;
       }
       toast.success("Office details updated.");
-      await refresh();
     } finally {
       setSavingProfile(false);
     }
@@ -61,6 +57,10 @@ export default function GovtSettings() {
 
   const onChangePassword = async (e: FormEvent) => {
     e.preventDefault();
+    if (!currentPassword) {
+      toast.error("Enter your current password.");
+      return;
+    }
     if (password.length < 10) {
       toast.error("Use at least 10 characters for a government account.");
       return;
@@ -69,27 +69,25 @@ export default function GovtSettings() {
       toast.error("The two passwords do not match.");
       return;
     }
-    if (!isSupabaseConfigured()) {
-      toast.error("Connect a Supabase database first.");
+
+    if (!live) {
+      toast.error("Connect to the API to change your password.");
       return;
     }
 
     setSavingPassword(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
+      await apiChangePassword(currentPassword, password);
+      toast.success("Password updated.");
+      setCurrentPassword("");
       setPassword("");
       setConfirm("");
-      toast.success("Password changed. Use it the next time you sign in.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update password.");
     } finally {
       setSavingPassword(false);
     }
   };
-
   return (
     <div className="space-y-6">
       {!live ? <OfflineNotice /> : null}
@@ -177,6 +175,15 @@ export default function GovtSettings() {
         </p>
 
         <form onSubmit={onChangePassword} className="mt-5 space-y-4">
+          <Field label="Current password">
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              autoComplete="current-password"
+              className={fieldClass}
+            />
+          </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="New password" hint="At least 10 characters.">
               <input
@@ -200,6 +207,7 @@ export default function GovtSettings() {
           <div className="flex justify-end gap-3">
             <GhostButton
               onClick={() => {
+                setCurrentPassword("");
                 setPassword("");
                 setConfirm("");
               }}

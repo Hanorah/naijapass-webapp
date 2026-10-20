@@ -26,7 +26,7 @@ import {
   type LiveProject,
   type ReviewStatus,
 } from "@/lib/db/types";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { apiFetch, isApiConfigured } from "@/lib/api/client";
 import { projectDetailPath } from "@/data/projects";
 
 type Draft = {
@@ -90,6 +90,35 @@ function draftFrom(project: LiveProject): Draft {
   };
 }
 
+/** Body for POST /api/projects. The API rejects nulls, so empty values are omitted. */
+function projectPayload(project: LiveProject, overrides: Record<string, unknown> = {}) {
+  return {
+    id: project.id,
+    title: project.title,
+    category: project.category,
+    description: project.description || undefined,
+    budget_ngn: project.budgetNgn || undefined,
+    budget_label: project.budgetLabel || undefined,
+    state: project.state,
+    lga: project.lga || undefined,
+    status: project.status,
+    contractor: project.contractor || undefined,
+    completion: project.completion || undefined,
+    featured: project.featured,
+    era: project.era,
+    supervising_agency: project.supervisingAgency || undefined,
+    source_title: project.sourceTitle || undefined,
+    source_url: project.sourceUrl || undefined,
+    image_url: project.imageUrl || undefined,
+    notes: project.notes || undefined,
+    start_date: project.startDate || undefined,
+    expected_completion: project.expectedCompletion || undefined,
+    review_status: project.reviewStatus,
+    published: project.reviewStatus === "published",
+    ...overrides,
+  };
+}
+
 export default function GovtProjectsManager() {
   const { user } = useSession();
   const state = user?.govtState ?? user?.state ?? "";
@@ -129,98 +158,92 @@ export default function GovtProjectsManager() {
       toast.error("Enter the LGA this project sits in.");
       return;
     }
-    if (!isSupabaseConfigured()) {
-      toast.error("Connect a Supabase database before publishing. See .env.example.");
+    if (!isApiConfigured()) {
+      toast.error("Connect the API (NEXT_PUBLIC_API_URL) before publishing. See .env.example.");
       return;
     }
 
     const budget = Number(draft.budgetNgn.replace(/[^\d]/g, "")) || 0;
+    const title = draft.title.trim();
     const row = {
       id: draft.id ?? buildProjectId(state, draft.title),
-      title: draft.title.trim(),
+      title,
       category: draft.category,
-      description: draft.description.trim(),
-      budget_ngn: budget,
+      description: draft.description.trim() || undefined,
+      budget_ngn: budget || undefined,
       budget_label: formatBudgetLabel(budget),
       state,
       lga: draft.lga.trim(),
       status: draft.status,
-      contractor: draft.contractor.trim(),
-      completion: draft.completion.trim() || null,
-      supervising_agency: draft.supervisingAgency.trim(),
-      source_title: draft.sourceTitle.trim() || null,
-      source_url: draft.sourceUrl.trim() || null,
-      image_url: draft.imageUrl.trim() || null,
-      start_date: draft.startDate || null,
-      expected_completion: draft.expectedCompletion || null,
+      contractor: draft.contractor.trim() || undefined,
+      completion: draft.completion.trim() || undefined,
+      supervising_agency: draft.supervisingAgency.trim() || undefined,
+      source_title: draft.sourceTitle.trim() || undefined,
+      source_url: draft.sourceUrl.trim() || undefined,
+      image_url: draft.imageUrl.trim() || undefined,
+      start_date: draft.startDate || undefined,
+      expected_completion: draft.expectedCompletion || undefined,
       review_status: draft.reviewStatus,
       published: draft.reviewStatus === "published",
-      submitted_by: user?.id ?? null,
     };
 
     setSaving(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase.from("projects").upsert(row, { onConflict: "id" });
-
-      if (error) {
-        toast.error(
-          /row-level security/i.test(error.message)
-            ? `Your account is not authorised to publish for ${state}.`
-            : error.message,
-        );
-        return;
-      }
+      await apiFetch("/api/projects", { method: "POST", body: JSON.stringify(row) });
 
       toast.success(
         draft.reviewStatus === "published"
-          ? `${row.title} is now live for citizens.`
-          : `${row.title} saved as a draft.`,
+          ? `${title} is now live for citizens.`
+          : `${title} saved as a draft.`,
       );
       setDraft(null);
       await reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save project.");
     } finally {
       setSaving(false);
     }
   };
 
   const onDelete = async (project: LiveProject) => {
-    if (!isSupabaseConfigured()) {
-      toast.error("Connect a Supabase database first.");
+    if (!isApiConfigured()) {
+      toast.error("Connect the API first.");
       return;
     }
-    if (!window.confirm(`Remove "${project.title}" permanently?`)) return;
+    if (!window.confirm(`Delete "${project.title}"? This permanently removes it.`)) {
+      return;
+    }
 
-    const supabase = createClient();
-    const { error } = await supabase.from("projects").delete().eq("id", project.id);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      await apiFetch(`/api/projects/${encodeURIComponent(project.id)}`, {
+        method: "DELETE",
+      });
+      toast.success("Project removed.");
+      await reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not remove project.");
     }
-    toast.success("Project removed.");
-    await reload();
   };
 
   const onToggleVisibility = async (project: LiveProject) => {
-    if (!isSupabaseConfigured()) {
-      toast.error("Connect a Supabase database first.");
+    if (!isApiConfigured()) {
+      toast.error("Connect the API first.");
       return;
     }
     const next: ReviewStatus = project.reviewStatus === "published" ? "draft" : "published";
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("projects")
-      .update({ review_status: next, published: next === "published" })
-      .eq("id", project.id);
-
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      await apiFetch("/api/projects", {
+        method: "POST",
+        body: JSON.stringify(
+          projectPayload(project, { review_status: next, published: next === "published" }),
+        ),
+      });
+      toast.success(next === "published" ? "Published to citizens." : "Hidden from citizens.");
+      await reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update project.");
     }
-    toast.success(next === "published" ? "Published to citizens." : "Hidden from citizens.");
-    await reload();
   };
-
   return (
     <div className="space-y-6">
       <PageHeader

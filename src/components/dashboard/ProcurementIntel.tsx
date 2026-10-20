@@ -146,8 +146,8 @@ export default function ProcurementIntel() {
 
       {error ? (
         <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Could not load live tenders: {error}. If bidding fails, run{" "}
-          <code className="text-xs">supabase/business-procurement.sql</code> in Supabase.
+          Could not load live tenders: {error}. Check that the API is running and
+          reachable.
         </p>
       ) : null}
 

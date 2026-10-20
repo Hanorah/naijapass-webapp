@@ -24,7 +24,7 @@ import {
   type StateContentRow,
   type StateContentType,
 } from "@/lib/db/types";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { apiFetch, isApiConfigured } from "@/lib/api/client";
 
 const TYPE_HELP: Record<StateContentType, string> = {
   announcement: "Timely news from the governor's office or an MDA.",
@@ -79,6 +79,33 @@ function draftFrom(row: StateContentRow): Draft {
   };
 }
 
+/** Body fields for POST /api/state-content. The API rejects nulls, so empty values are omitted. */
+function contentPayload(input: {
+  state: string;
+  type: StateContentType;
+  title: string;
+  body?: string | null;
+  contact?: string | null;
+  phone?: string | null;
+  url?: string | null;
+  category?: string | null;
+  effective_date?: string | null;
+  published: boolean;
+}) {
+  return {
+    state: input.state,
+    type: input.type,
+    title: input.title,
+    body: input.body || undefined,
+    contact: input.contact || undefined,
+    phone: input.phone || undefined,
+    url: input.url || undefined,
+    category: input.category || undefined,
+    effective_date: input.effective_date ? input.effective_date.slice(0, 10) : undefined,
+    published: input.published,
+  };
+}
+
 export default function GovtUpdatesManager() {
   const { user, live } = useSession();
   const state = user?.govtState ?? user?.state ?? "";
@@ -112,69 +139,67 @@ export default function GovtUpdatesManager() {
       toast.error("Give this entry a title.");
       return;
     }
-    if (!isSupabaseConfigured()) {
-      toast.error("Connect a Supabase database before publishing. See .env.example.");
+    if (!isApiConfigured()) {
+      toast.error("Connect the API (NEXT_PUBLIC_API_URL) before publishing. See .env.example.");
       return;
     }
 
     const row = {
-      state,
-      type: draft.type,
-      title: draft.title.trim(),
-      body: draft.body.trim() || null,
-      contact: draft.contact.trim() || null,
-      phone: draft.phone.trim() || null,
-      url: draft.url.trim() || null,
-      category: draft.category.trim() || null,
-      effective_date: draft.effectiveDate || null,
-      published: draft.published,
-      submitted_by: user?.id ?? null,
+      id: draft.id ?? undefined,
+      ...contentPayload({
+        state,
+        type: draft.type,
+        title: draft.title.trim(),
+        body: draft.body.trim(),
+        contact: draft.contact.trim(),
+        phone: draft.phone.trim(),
+        url: draft.url.trim(),
+        category: draft.category.trim(),
+        effective_date: draft.effectiveDate,
+        published: draft.published,
+      }),
     };
 
     setSaving(true);
     try {
-      const supabase = createClient();
-      const { error } = draft.id
-        ? await supabase.from("state_content").update(row).eq("id", draft.id)
-        : await supabase.from("state_content").insert(row);
-
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
+      await apiFetch("/api/state-content", { method: "POST", body: JSON.stringify(row) });
       toast.success(draft.published ? "Published to the State Hub." : "Saved as unpublished.");
       setDraft(null);
       await reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save entry.");
     } finally {
       setSaving(false);
     }
   };
 
+  const saveRow = (row: StateContentRow, published: boolean) =>
+    apiFetch("/api/state-content", {
+      method: "POST",
+      body: JSON.stringify({ id: row.id, ...contentPayload({ ...row, published }) }),
+    });
+
   const onTogglePublished = async (row: StateContentRow) => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("state_content")
-      .update({ published: !row.published })
-      .eq("id", row.id);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      await saveRow(row, !row.published);
+      await reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update entry.");
     }
-    await reload();
   };
 
   const onDelete = async (row: StateContentRow) => {
     if (!window.confirm(`Remove "${row.title}"?`)) return;
-    const supabase = createClient();
-    const { error } = await supabase.from("state_content").delete().eq("id", row.id);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      await apiFetch(`/api/state-content/${encodeURIComponent(row.id)}`, {
+        method: "DELETE",
+      });
+      toast.success("Removed.");
+      await reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not remove entry.");
     }
-    toast.success("Removed.");
-    await reload();
   };
-
   return (
     <div className="space-y-6">
       {!live ? <OfflineNotice /> : null}

@@ -192,7 +192,7 @@ export default function GovtSignInForm() {
 
           {!live ? (
             <p className="mt-4 rounded-xl border border-amber-400/25 bg-amber-400/10 p-3 text-xs leading-relaxed text-amber-200">
-              Offline demo mode — no Supabase keys detected. Pick any state and
+              Offline demo mode — NEXT_PUBLIC_API_URL is not set. Pick any state and
               use any password to preview the portal.
             </p>
           ) : null}

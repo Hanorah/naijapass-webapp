@@ -19,7 +19,7 @@ export type Project = {
   supervisingAgency: string;
 };
 
-/** Bundled infrastructure project records (also in supabase/seed.sql). */
+/** Bundled infrastructure project records. */
 export const projects: Project[] = [
   {
     id: "NP-FCT-ABJKAD",

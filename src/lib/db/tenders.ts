@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { isSupabaseConfigured } from "@/lib/supabase/client";
+import { apiFetch, isApiConfigured } from "@/lib/api/client";
+import { isLiveBackend } from "@/lib/backend";
 import { type TenderRow } from "@/lib/db/types";
 import { federalTenders } from "@/data/federalTenders";
 
@@ -17,7 +18,7 @@ export type TenderItem = {
   urgent: boolean;
   states: string[];
   federal?: boolean;
-  /** True when row comes from Supabase (UUID id) — bids persist in DB. */
+  /** True when row comes from the API (UUID id) — bids persist in DB. */
   live: boolean;
   publisherType?: "govt" | "business" | "federal";
 };
@@ -103,16 +104,18 @@ function mergeTenders(db: TenderItem[], seed: TenderItem[]) {
 
 async function fetchAllTenders() {
   try {
-    const res = await fetch("/api/tenders/list", { cache: "no-store" });
-    const data = (await res.json()) as {
-      tenders?: TenderRow[];
-      error?: string;
-    };
-    if (!res.ok || data.error) {
-      return { rows: null as TenderItem[] | null, error: data.error ?? "Could not load tenders." };
+    if (isApiConfigured()) {
+      const data = await apiFetch<{ tenders?: TenderRow[]; error?: string }>(
+        "/api/tenders",
+        { anonymous: true },
+      );
+      if (data.error) {
+        return { rows: null as TenderItem[] | null, error: data.error };
+      }
+      return { rows: (data.tenders ?? []).map(rowToTender), error: null };
     }
-    const rows = (data.tenders ?? []) as TenderRow[];
-    return { rows: rows.map(rowToTender), error: null };
+
+    return { rows: null as TenderItem[] | null, error: "API is not configured." };
   } catch {
     return { rows: null as TenderItem[] | null, error: "Could not reach tender API." };
   }
@@ -121,60 +124,27 @@ async function fetchAllTenders() {
 export function useTenders(state?: string) {
   const seed = useMemo(() => seedFromFederal(), []);
   const [dbRows, setDbRows] = useState<TenderItem[] | null>(null);
-  const [settled, setSettled] = useState(!isSupabaseConfigured());
+  const [settled, setSettled] = useState(!isLiveBackend());
   const [error, setError] = useState<string | null>(null);
-  const [seeding, setSeeding] = useState(false);
 
   const load = useCallback(async () => {
-    if (!isSupabaseConfigured()) return;
+    if (!isLiveBackend()) return;
     const result = await fetchAllTenders();
     setDbRows(result.rows);
     setError(result.error);
     setSettled(true);
   }, []);
 
+  /** The bundled catalogue is merged client-side; this just refreshes the live board. */
   const importCatalogue = useCallback(async () => {
-    if (!isSupabaseConfigured() || seeding) return { ok: false as const, error: "Busy" };
-    setSeeding(true);
-    try {
-      const res = await fetch("/api/tenders/seed-catalogue", { method: "POST" });
-      const data = (await res.json()) as {
-        ok?: boolean;
-        inserted?: number;
-        updated?: number;
-        error?: string;
-      };
-      if (!res.ok) {
-        return { ok: false as const, error: data.error ?? "Import failed" };
-      }
-      await load();
-      try {
-        window.dispatchEvent(new CustomEvent("naijapass:tenders-changed"));
-      } catch {
-        /* ignore */
-      }
-      return {
-        ok: true as const,
-        inserted: data.inserted ?? 0,
-        updated: data.updated ?? 0,
-      };
-    } catch {
-      return { ok: false as const, error: "Could not reach the server." };
-    } finally {
-      setSeeding(false);
-    }
-  }, [load, seeding]);
+    await load();
+    return { ok: true as const, inserted: 0, updated: 0 };
+  }, [load]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) return;
+    if (!isLiveBackend()) return;
     let active = true;
     void (async () => {
-      // Idempotent: upsert researched NOCOPO / state tenders into live board.
-      try {
-        await fetch("/api/tenders/seed-catalogue", { method: "POST" });
-      } catch {
-        /* continue — board still loads whatever is in DB */
-      }
       const result = await fetchAllTenders();
       if (!active) return;
       setDbRows(result.rows);
@@ -195,7 +165,7 @@ export function useTenders(state?: string) {
   }, [load]);
 
   const allTenders = useMemo(() => {
-    if (!isSupabaseConfigured()) return seed;
+    if (!isLiveBackend()) return seed;
     return mergeTenders(settled ? (dbRows ?? []) : [], seed);
   }, [dbRows, seed, settled]);
 
@@ -215,7 +185,7 @@ export function useTenders(state?: string) {
     return allTenders.filter((t) => tenderMatchesState(t, state));
   }, [allTenders, state]);
 
-  const source: TenderSource = !isSupabaseConfigured()
+  const source: TenderSource = !isLiveBackend()
     ? "seed"
     : settled
       ? dbRows?.length
@@ -232,7 +202,7 @@ export function useTenders(state?: string) {
     error,
     reload: load,
     importCatalogue,
-    seeding,
-    loading: isSupabaseConfigured() && !settled,
+    seeding: false,
+    loading: isLiveBackend() && !settled,
   };
 }

@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Landmark, Search, ShieldCheck, ShieldX } from "lucide-react";
 import { nigerianStates } from "@/data/states";
-import { PROFILE_COLUMNS, type ProfileRow } from "@/lib/session";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { type ProfileRow } from "@/lib/session";
+import { apiFetch, isApiConfigured } from "@/lib/api/client";
+import { fetchAdminUsers, patchAdminUser } from "@/lib/db/adminProfiles";
 
 type Row = {
   state: string;
@@ -31,36 +32,36 @@ async function fetchStateRows(): Promise<Row[]> {
     projects: 0,
     content: 0,
   }));
-  if (!isSupabaseConfigured()) return blank;
+  if (!isApiConfigured()) return blank;
 
-  const supabase = createClient();
-  const [profiles, projects, content] = await Promise.all([
-    supabase.from("profiles").select(PROFILE_COLUMNS).eq("role", "govt"),
-    supabase.from("projects").select("state"),
-    supabase.from("state_content").select("state"),
+  const [projects, content, users] = await Promise.allSettled([
+    apiFetch<{ projects?: { state: string | null }[] }>("/api/projects", { anonymous: true }),
+    apiFetch<{ items?: { state: string | null }[] }>("/api/state-content", { anonymous: true }),
+    fetchAdminUsers(),
   ]);
 
-  if (profiles.error) {
-    toast.error(profiles.error.message);
-    return blank;
+  const govtByState = new Map<string, ProfileRow>();
+  if (users.status === "fulfilled") {
+    for (const profile of users.value) {
+      if (profile.role !== "govt" || !profile.govt_state) continue;
+      govtByState.set(profile.govt_state.replace(/\s+state$/i, "").trim(), profile);
+    }
   }
 
-  const byState = new Map<string, ProfileRow>();
-  for (const profile of (profiles.data ?? []) as ProfileRow[]) {
-    if (profile.govt_state) byState.set(profile.govt_state, profile);
-  }
-
-  const projectCounts = tally(projects.data as { state: string | null }[] | null);
-  const contentCounts = tally(content.data as { state: string | null }[] | null);
+  const projectCounts = tally(
+    projects.status === "fulfilled" ? (projects.value.projects ?? null) : null,
+  );
+  const contentCounts = tally(
+    content.status === "fulfilled" ? (content.value.items ?? null) : null,
+  );
 
   return nigerianStates.map((state) => ({
     state,
-    profile: byState.get(state) ?? null,
+    profile: govtByState.get(state) ?? null,
     projects: projectCounts.get(state) ?? 0,
     content: contentCounts.get(state) ?? 0,
   }));
 }
-
 export default function AdminStatesPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,24 +100,14 @@ export default function AdminStatesPage() {
   const onToggleStatus = async (row: Row) => {
     if (!row.profile) return;
     const next = row.profile.account_status === "active" ? "suspended" : "active";
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("profiles")
-      .update({ account_status: next })
-      .eq("id", row.profile.id);
-
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      await patchAdminUser(row.profile.id, { account_status: next });
+      toast.success(next === "suspended" ? "Account suspended." : "Account reactivated.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update account.");
     }
-    toast.success(
-      next === "suspended"
-        ? `${row.state} can no longer sign in.`
-        : `${row.state} reactivated.`,
-    );
     await load();
   };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">

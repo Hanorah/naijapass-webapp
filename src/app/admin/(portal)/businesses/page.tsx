@@ -5,9 +5,7 @@ import toast from "react-hot-toast";
 import { stateDisplayName } from "@/data/marketplace";
 import { useBusinesses } from "@/lib/db/businesses";
 import { useSession } from "@/components/SessionProvider";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { BUSINESSES_CHANGED_EVENT } from "@/lib/db/businessEvents";
-
+import { apiFetch } from "@/lib/api/client";
 export default function AdminBusinessesPage() {
   const { allBusinesses, source, reload, loading } = useBusinesses(undefined, {
     includeAllStatuses: true,
@@ -43,18 +41,16 @@ export default function AdminBusinessesPage() {
   const count = fromDb ? dbFiltered.length : listingFiltered.length;
 
   const onSetStatus = async (id: string, status: "live" | "hidden") => {
-    if (fromDb && isSupabaseConfigured()) {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("businesses")
-        .update({ status })
-        .eq("id", id);
-      if (error) {
-        toast.error(error.message);
-        return;
+    if (fromDb) {
+      try {
+        await apiFetch(`/api/admin/businesses/${encodeURIComponent(id)}/status`, {
+          method: "PATCH",
+          body: JSON.stringify({ status }),
+        });
+        toast.success(status === "live" ? "Listing published." : "Listing hidden.");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not update listing.");
       }
-      toast.success(status === "live" ? "Listing published." : "Listing hidden.");
-      window.dispatchEvent(new Event(BUSINESSES_CHANGED_EVENT));
       await reload();
       return;
     }

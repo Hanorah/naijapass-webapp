@@ -17,12 +17,11 @@ import {
   selectClass,
 } from "@/components/govt/ui";
 import {
-  TENDER_COLUMNS,
   TENDER_STATUSES,
   type TenderRow,
   type TenderStatus,
 } from "@/lib/db/types";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { apiFetch, isApiConfigured } from "@/lib/api/client";
 import { federalTenders, formatNaira } from "@/data/federalTenders";
 import { normalizeDashboardState } from "@/lib/dashboardState";
 
@@ -101,22 +100,61 @@ function seedTendersForState(state: string): TenderRow[] {
     }));
 }
 
+/** MySQL-friendly DATETIME ("YYYY-MM-DD HH:MM:SS") from a date or ISO string. */
+function toSqlDateTime(value: string | null | undefined) {
+  if (!value) return undefined;
+  const base = value.length <= 10 ? `${value}T00:00:00` : value;
+  return base.slice(0, 19).replace("T", " ");
+}
+
+/** Body for POST /api/tenders. The API rejects nulls, so empty values are omitted. */
+function tenderPayload(row: TenderRow, overrides: Record<string, unknown> = {}) {
+  return {
+    id: row.id,
+    title: row.title,
+    reference: row.reference || undefined,
+    mda: row.mda || undefined,
+    state: row.state || undefined,
+    sector: row.sector || undefined,
+    value: row.value ?? undefined,
+    currency: row.currency || undefined,
+    deadline: toSqlDateTime(row.deadline),
+    status: row.status,
+    description: row.description || undefined,
+    source: row.source || undefined,
+    lga: row.lga || undefined,
+    contact_email: row.contact_email || undefined,
+    document_url: row.document_url || undefined,
+    publisher_type: "govt",
+    ...overrides,
+  };
+}
+
 async function fetchTenders(state: string): Promise<TenderRow[]> {
   if (!state) return [];
-  if (!isSupabaseConfigured()) return seedTendersForState(state);
+  if (!isApiConfigured()) return seedTendersForState(state);
 
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("tenders")
-    .select(TENDER_COLUMNS)
-    .eq("state", state)
-    .order("created_at", { ascending: false });
+  // The API filters by one status at a time, so gather every status for this state.
+  const results = await Promise.allSettled(
+    TENDER_STATUSES.map((status) =>
+      apiFetch<{ tenders?: TenderRow[] }>(
+        `/api/tenders?state=${encodeURIComponent(state)}&status=${status}`,
+        { anonymous: true },
+      ),
+    ),
+  );
 
-  if (error) {
-    toast.error(error.message);
+  const failed = results.find((r) => r.status === "rejected");
+  if (failed && results.every((r) => r.status === "rejected")) {
+    const reason = (failed as PromiseRejectedResult).reason;
+    toast.error(reason instanceof Error ? reason.message : "Could not load tenders.");
     return seedTendersForState(state);
   }
-  const rows = (data ?? []) as TenderRow[];
+
+  const rows = results
+    .flatMap((r) => (r.status === "fulfilled" ? (r.value.tenders ?? []) : []))
+    .filter((row) => row.state === state)
+    .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
   if (!rows.length) return seedTendersForState(state);
 
   const seen = new Set(rows.map((r) => (r.reference ?? r.id).toLowerCase()));
@@ -125,7 +163,6 @@ async function fetchTenders(state: string): Promise<TenderRow[]> {
   );
   return [...rows, ...extras];
 }
-
 function draftFrom(row: TenderRow): Draft {
   return {
     id: row.id,
@@ -181,70 +218,59 @@ export default function GovtTendersManager() {
       toast.error("Give the tender a title.");
       return;
     }
-    if (!isSupabaseConfigured()) {
-      toast.error("Connect a Supabase database before publishing. See .env.example.");
+    if (!isApiConfigured()) {
+      toast.error("Connect the API (NEXT_PUBLIC_API_URL) before publishing. See .env.example.");
       return;
     }
 
+    const isSeed = Boolean(draft.id?.startsWith("seed-"));
     const row = {
+      id: draft.id && !isSeed ? draft.id : undefined,
       title: draft.title.trim(),
-      reference: draft.reference.trim() || null,
-      mda: draft.mda.trim() || null,
+      reference: draft.reference.trim() || undefined,
+      mda: draft.mda.trim() || undefined,
       state,
       sector: draft.sector,
-      lga: draft.lga.trim() || null,
-      value: draft.value ? Number(draft.value.replace(/[^\d]/g, "")) : null,
-      deadline: draft.deadline ? new Date(draft.deadline).toISOString() : null,
+      lga: draft.lga.trim() || undefined,
+      value: draft.value ? Number(draft.value.replace(/[^\d]/g, "")) || undefined : undefined,
+      deadline: toSqlDateTime(draft.deadline),
       status: draft.status,
-      description: draft.description.trim() || null,
-      contact_email: draft.contactEmail.trim() || null,
-      document_url: draft.documentUrl.trim() || null,
+      description: draft.description.trim() || undefined,
+      contact_email: draft.contactEmail.trim() || undefined,
+      document_url: draft.documentUrl.trim() || undefined,
       source: `${state} State Government`,
-      published_at: new Date().toISOString(),
-      submitted_by: user?.id ?? null,
+      publisher_type: "govt",
     };
 
     setSaving(true);
     try {
-      const supabase = createClient();
-      const isSeed = Boolean(draft.id?.startsWith("seed-"));
-      const { error } = draft.id && !isSeed
-        ? await supabase.from("tenders").update(row).eq("id", draft.id)
-        : await supabase.from("tenders").insert(row);
+      await apiFetch("/api/tenders", { method: "POST", body: JSON.stringify(row) });
 
-      if (error) {
-        toast.error(
-          /duplicate key/i.test(error.message)
-            ? "That tender reference is already in use."
-            : error.message,
-        );
-        return;
-      }
-
-      toast.success(draft.id ? "Tender updated." : "Tender published.");
+      toast.success(draft.id && !isSeed ? "Tender updated." : "Tender published.");
       setDraft(null);
       await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save tender.");
     } finally {
       setSaving(false);
     }
   };
-
   const onDelete = async (row: TenderRow) => {
     if (row.id.startsWith("seed-")) {
       toast.error("Catalogue samples cannot be deleted — publish your own tender instead.");
       return;
     }
     if (!window.confirm(`Remove "${row.title}"?`)) return;
-    const supabase = createClient();
-    const { error } = await supabase.from("tenders").delete().eq("id", row.id);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      await apiFetch(`/api/tenders/${encodeURIComponent(row.id)}`, {
+        method: "DELETE",
+      });
+      toast.success("Tender removed.");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not remove tender.");
     }
-    toast.success("Tender removed.");
-    await load();
   };
-
   const toneFor = (status: TenderStatus) =>
     status === "open"
       ? "green"

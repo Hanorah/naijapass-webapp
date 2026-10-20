@@ -12,20 +12,12 @@ import {
 import {
   LISTINGS_KEY,
   PENDING_KEY,
-  PROFILE_COLUMNS,
   PROJECT_FEEDBACK_KEY,
-  ROLES,
   SESSION_KEY,
-  demoUserForEmail,
-  findStoredUser,
-  profileToSessionUser,
   readJson,
   removeKey,
-  upsertUser,
   writeJson,
   type PendingRegistration,
-  type ProfileRow,
-  type Role,
   type SessionUser,
   type SubmitProjectFeedbackInput,
   type UserProjectFeedback,
@@ -35,10 +27,17 @@ import {
   type MarketplaceListing,
 } from "@/data/marketplace";
 import { mergeBids, readBids, upsertBid, writeBids, type TenderBid } from "@/lib/bids";
-import { dbBidToTenderBid } from "@/lib/db/procurement";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { nigerianStates } from "@/data/states";
-import type { User as AuthUser } from "@supabase/supabase-js";
+import {
+  apiFetch,
+  apiLogin,
+  apiMe,
+  apiRegister,
+  apiUpdateMe,
+  clearToken,
+  getToken,
+  isApiConfigured,
+  setToken,
+} from "@/lib/api/client";
 
 export type AuthResult = {
   user: SessionUser | null;
@@ -50,7 +49,7 @@ type RegistrationInput = PendingRegistration & { password: string };
 
 type SessionContextValue = {
   ready: boolean;
-  /** True when a live Supabase project is backing this session. */
+  /** True when NEXT_PUBLIC_API_URL is set. */
   live: boolean;
   user: SessionUser | null;
   pending: PendingRegistration | null;
@@ -60,6 +59,10 @@ type SessionContextValue = {
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
   updateUser: (patch: Partial<SessionUser>) => void;
+  /** PATCH /api/auth/me, then sync the session (local patch when offline). */
+  saveProfile: (
+    patch: Partial<SessionUser> & { businessName?: string },
+  ) => Promise<{ user: SessionUser | null; error?: string }>;
   refresh: () => Promise<void>;
   addListing: (listing: MarketplaceListing) => void;
   setListingStatus: (id: string, status: MarketplaceListing["status"]) => void;
@@ -76,156 +79,26 @@ type SessionContextValue = {
 const SessionContext = createContext<SessionContextValue | null>(null);
 
 function friendlyAuthError(message: string) {
-  if (/invalid login credentials/i.test(message)) {
+  if (/invalid email or password|invalid login/i.test(message)) {
     return "Email or password is incorrect.";
   }
-  if (/email not confirmed/i.test(message)) {
-    return "Confirm your email address, then sign in again.";
-  }
-  if (/already registered|already exists/i.test(message)) {
+  if (/already exists|already registered/i.test(message)) {
     return "An account with that email already exists. Sign in instead.";
   }
   return message;
 }
 
-/** Let signInWithPassword release the auth lock before other Supabase calls. */
-function releaseAuthLock() {
-  return new Promise<void>((resolve) => {
-    window.setTimeout(resolve, 75);
-  });
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
-  return new Promise((resolve) => {
-    const timer = window.setTimeout(() => resolve(fallback), ms);
-    void promise.then(
-      (value) => {
-        window.clearTimeout(timer);
-        resolve(value);
-      },
-      () => {
-        window.clearTimeout(timer);
-        resolve(fallback);
-      },
-    );
-  });
-}
-
-function toRole(value: unknown): Role {
-  return (ROLES as readonly string[]).includes(String(value))
-    ? (value as Role)
-    : "individual";
-}
-
-/** lagos@govt.naijapass.ng → Lagos */
-function govtStateFromEmail(email: string): string | undefined {
-  const match = email.trim().toLowerCase().match(/^([a-z0-9]+)@govt\.naijapass\.ng$/);
-  if (!match) return undefined;
-  const local = match[1];
-  return nigerianStates.find(
-    (state) => state.toLowerCase().replace(/[\s-]/g, "") === local,
-  );
-}
-
-function fallbackUserFromAuth(authUser: AuthUser): SessionUser {
-  const email = authUser.email ?? "";
-  const meta = authUser.user_metadata ?? {};
-  const fromEmail = govtStateFromEmail(email);
-  const metaRole = toRole(meta.role);
-  const role: Role =
-    metaRole !== "individual"
-      ? metaRole
-      : fromEmail
-        ? "govt"
-        : "individual";
-  const state =
-    (typeof meta.govt_state === "string" && meta.govt_state) ||
-    (typeof meta.state === "string" && meta.state) ||
-    fromEmail ||
-    "";
-
-  return {
-    id: authUser.id,
-    name:
-      (typeof meta.full_name === "string" && meta.full_name) ||
-      email.split("@")[0] ||
-      "NaijaPass user",
-    email,
-    phone: typeof meta.phone === "string" ? meta.phone : "",
-    state,
-    role,
-    verified: role === "govt" || role === "admin",
-    govtState: role === "govt" ? state || fromEmail : undefined,
-    accountStatus: "active",
-  };
-}
-
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const live = isSupabaseConfigured();
-  // One browser client for the lifetime of the provider; it owns the auth
-  // cookie refresh timer, so recreating it on every render would leak.
-  const [supabase] = useState(() => (live ? createClient() : null));
+  const live = isApiConfigured();
 
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<SessionUser | null>(null);
   const [pending, setPending] = useState<PendingRegistration | null>(null);
-  const [listings, setListings] = useState<MarketplaceListing[]>(
-    seedMarketplaceListings,
-  );
-  const [projectFeedback, setProjectFeedback] = useState<UserProjectFeedback[]>(
-    [],
-  );
+  const [listings, setListings] = useState<MarketplaceListing[]>(seedMarketplaceListings);
+  const [projectFeedback, setProjectFeedback] = useState<UserProjectFeedback[]>([]);
   const [tenderBids, setTenderBids] = useState<TenderBid[]>([]);
 
-  const loadProfile = useCallback(
-    async (authUser?: AuthUser | null): Promise<SessionUser | null> => {
-      if (!supabase) return null;
-
-      let user = authUser ?? null;
-      if (!user) {
-        const { data: auth } = await supabase.auth.getUser();
-        user = auth.user;
-      }
-      if (!user) return null;
-
-      try {
-        let timedOut = false;
-        const result = await Promise.race([
-          Promise.resolve(
-            supabase
-              .from("profiles")
-              .select(PROFILE_COLUMNS)
-              .eq("id", user.id)
-              .maybeSingle(),
-          ),
-          new Promise<null>((resolve) => {
-            window.setTimeout(() => {
-              timedOut = true;
-              resolve(null);
-            }, 8000);
-          }),
-        ]);
-
-        if (timedOut || !result || result.error || !result.data) {
-          return fallbackUserFromAuth(user);
-        }
-
-        return profileToSessionUser(result.data as ProfileRow);
-      } catch {
-        return fallbackUserFromAuth(user);
-      }
-    },
-    [supabase],
-  );
-
-  /*
-   * localStorage cannot be read during render without breaking hydration, so
-   * the first paint intentionally shows seed data and these effects correct it
-   * once mounted. That is exactly the pattern set-state-in-effect flags.
-   */
   /* eslint-disable react-hooks/set-state-in-effect */
-
-  // Hydrate marketplace + local feedback drafts (these stay client-side).
   useEffect(() => {
     setProjectFeedback(readJson<UserProjectFeedback[]>(PROJECT_FEEDBACK_KEY) ?? []);
     setTenderBids(readBids());
@@ -243,88 +116,60 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const hydrateBidsFromDb = useCallback(async () => {
-    if (!isSupabaseConfigured()) return;
-    try {
-      const res = await fetch("/api/tenders/bids");
-      if (!res.ok) return;
-      const data = (await res.json()) as {
-        bids?: Array<Parameters<typeof dbBidToTenderBid>[0]>;
-      };
-      if (!data.bids?.length) return;
-      const fromDb = data.bids.map(dbBidToTenderBid);
-      const merged = mergeBids(fromDb, readBids());
-      writeBids(merged);
-      setTenderBids(merged);
-    } catch {
-      /* keep local bids */
-    }
-  }, []);
-
-  // Establish who is signed in.
-  // Use onAuthStateChange (incl. INITIAL_SESSION) so we never deadlock by
-  // calling getUser() while the auth client is still locking for the listener.
   useEffect(() => {
     let active = true;
 
-    if (!supabase) {
-      setUser(readJson<SessionUser>(SESSION_KEY));
-      setPending(readJson<PendingRegistration>(PENDING_KEY));
-      setReady(true);
-      return;
-    }
-
-    const applySession = async (authUser: AuthUser | null) => {
-      try {
-        if (!authUser) {
-          if (!active) return;
-          setUser(null);
-          setPending(readJson<PendingRegistration>(PENDING_KEY));
-          return;
-        }
-        const profile = await loadProfile(authUser);
+    void (async () => {
+      if (!live) {
         if (!active) return;
-        setUser(profile);
-        setPending(profile ? null : readJson<PendingRegistration>(PENDING_KEY));
-        if (profile) void hydrateBidsFromDb();
-      } catch {
-        if (!active) return;
-        setUser(authUser ? fallbackUserFromAuth(authUser) : null);
-      } finally {
-        if (active) setReady(true);
-      }
-    };
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") {
-        if (!active) return;
-        setUser(null);
+        setUser(readJson<SessionUser>(SESSION_KEY));
+        setPending(readJson<PendingRegistration>(PENDING_KEY));
         setReady(true);
         return;
       }
-      void applySession(session?.user ?? null);
-    });
 
-    // Safety net: if auth never fires (rare), unlock the UI after 4s.
-    const unlock = window.setTimeout(() => {
-      if (active) setReady(true);
-    }, 4000);
+      const token = getToken();
+      if (!token) {
+        if (!active) return;
+        setUser(null);
+        setPending(readJson<PendingRegistration>(PENDING_KEY));
+        setReady(true);
+        return;
+      }
+
+      try {
+        const { user: me } = await apiMe();
+        if (!active) return;
+        setUser(me);
+        writeJson(SESSION_KEY, me);
+        setPending(me.verified ? null : readJson<PendingRegistration>(PENDING_KEY));
+      } catch {
+        if (!active) return;
+        clearToken();
+        setUser(null);
+        setPending(readJson<PendingRegistration>(PENDING_KEY));
+      } finally {
+        if (active) setReady(true);
+      }
+    })();
 
     return () => {
       active = false;
-      window.clearTimeout(unlock);
-      subscription.unsubscribe();
     };
-  }, [supabase, loadProfile, hydrateBidsFromDb]);
-
+  }, [live]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const refresh = useCallback(async () => {
-    if (!supabase) return;
-    setUser(await loadProfile());
-  }, [supabase, loadProfile]);
+    if (!live) return;
+    try {
+      const { user: me } = await apiMe();
+      setUser(me);
+      writeJson(SESSION_KEY, me);
+    } catch {
+      clearToken();
+      setUser(null);
+    }
+  }, [live]);
 
   const persistListings = useCallback((next: MarketplaceListing[]) => {
     setListings(next);
@@ -341,188 +186,113 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         role: data.role,
       };
 
-      if (!supabase) {
-        setPending(record);
-        writeJson(PENDING_KEY, record);
-        setUser(null);
-        removeKey(SESSION_KEY);
-        return { user: null, needsKyc: true };
-      }
-
-      const { data: result, error } = await supabase.auth.signUp({
-        email: record.email,
-        password: data.password,
-        options: {
-          data: {
-            full_name: record.name,
-            phone: record.phone,
-            state: record.state,
-            role: record.role,
-          },
-        },
-      });
-
-      if (error) {
-        return { user: null, needsKyc: false, error: friendlyAuthError(error.message) };
-      }
-
-      setPending(record);
-      writeJson(PENDING_KEY, record);
-
-      if (!result.session) {
-        // Email confirmation is switched on for this project.
+      if (!live) {
         return {
           user: null,
           needsKyc: false,
-          error:
-            "Check your inbox and confirm your email address, then sign in to finish verification.",
+          error: "API is not configured. Set NEXT_PUBLIC_API_URL.",
         };
       }
 
-      const profile = await loadProfile(result.user);
-      setUser(profile);
-      return { user: profile, needsKyc: true };
+      try {
+        const result = await apiRegister({
+          email: record.email,
+          password: data.password,
+          fullName: record.name,
+          phone: record.phone,
+          state: record.state,
+          role: record.role,
+        });
+        setToken(result.token);
+        setUser(result.user);
+        writeJson(SESSION_KEY, result.user);
+        setPending(record);
+        writeJson(PENDING_KEY, record);
+        return { user: result.user, needsKyc: !result.user.verified };
+      } catch (err) {
+        return {
+          user: null,
+          needsKyc: false,
+          error: friendlyAuthError(err instanceof Error ? err.message : "Registration failed."),
+        };
+      }
     },
-    [supabase, loadProfile],
+    [live],
   );
 
   const completeKyc = useCallback(
     async (extra?: Partial<SessionUser>): Promise<SessionUser | null> => {
-      if (!supabase) {
-        const source = pending;
-        if (!source) return null;
+      if (!live) return null;
+      try {
+        const { user: me } = await apiMe();
         const next: SessionUser = {
-          name: source.name,
-          email: source.email,
-          phone: source.phone,
-          state: source.state,
-          role: source.role,
+          ...me,
           verified: true,
           accountStatus: "active",
           ...extra,
         };
         setUser(next);
         writeJson(SESSION_KEY, next);
-        upsertUser(next);
         setPending(null);
         removeKey(PENDING_KEY);
         return next;
+      } catch {
+        return null;
       }
-
-      const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user) return null;
-
-      const patch: Record<string, unknown> = {
-        kyc_status: "verified",
-        account_status: "active",
-      };
-      if (extra?.businessType) patch.business_type = extra.businessType;
-      if (extra?.rcNumber) patch.cac_number = extra.rcNumber;
-      if (pending?.name) patch.full_name = pending.name;
-      if (pending?.phone) patch.phone = pending.phone;
-      if (pending?.state) patch.state = pending.state;
-
-      const { error } = await supabase
-        .from("profiles")
-        .update(patch)
-        .eq("id", auth.user.id);
-      if (error) return null;
-
-      const next = await loadProfile();
-      setUser(next);
-      setPending(null);
-      removeKey(PENDING_KEY);
-      return next;
     },
-    [supabase, pending, loadProfile],
+    [live],
   );
 
   const signIn = useCallback(
     async (email: string, password: string): Promise<AuthResult> => {
       const normalized = email.trim().toLowerCase();
 
-      if (!supabase) {
-        const demo = demoUserForEmail(normalized);
-        if (demo) {
-          setUser(demo);
-          writeJson(SESSION_KEY, demo);
-          upsertUser(demo);
-          setPending(null);
-          removeKey(PENDING_KEY);
-          return { user: demo, needsKyc: false };
-        }
-        const saved = findStoredUser(normalized);
-        if (saved) {
-          setUser(saved);
-          writeJson(SESSION_KEY, saved);
-          return { user: saved, needsKyc: !saved.verified };
-        }
-        const waiting = readJson<PendingRegistration>(PENDING_KEY);
-        if (waiting && waiting.email.toLowerCase() === normalized) {
-          setPending(waiting);
-          return { user: null, needsKyc: true };
-        }
-        return { user: null, needsKyc: false, error: "No account found." };
-      }
-
-      // Pass data.user into loadProfile — do not call getUser() here.
-      // signInWithPassword holds the auth lock; other auth/DB calls in that
-      // window can hang forever (button stuck on "Signing in…").
-      const { data: authData, error } = await supabase.auth.signInWithPassword({
-        email: normalized,
-        password,
-      });
-      if (error) {
-        return { user: null, needsKyc: false, error: friendlyAuthError(error.message) };
-      }
-      if (!authData.user) {
+      if (!live) {
         return {
           user: null,
           needsKyc: false,
-          error: "Sign-in succeeded but no user was returned. Check Supabase Auth.",
+          error: "API is not configured. Set NEXT_PUBLIC_API_URL.",
         };
       }
 
-      await releaseAuthLock();
+      try {
+        const result = await apiLogin(normalized, password);
+        setToken(result.token);
+        setUser(result.user);
+        writeJson(SESSION_KEY, result.user);
+        setPending(null);
+        removeKey(PENDING_KEY);
 
-      const profile = await withTimeout(
-        loadProfile(authData.user),
-        8000,
-        null,
-      );
-      const sessionUser = profile ?? fallbackUserFromAuth(authData.user);
-      setUser(sessionUser);
+        if (result.user.accountStatus === "suspended") {
+          clearToken();
+          setUser(null);
+          return {
+            user: null,
+            needsKyc: false,
+            error: "This account is suspended. Contact the portal administrator.",
+          };
+        }
 
-      // Finish hydrating the real profile in the background if we timed out.
-      if (!profile) {
-        void loadProfile(authData.user).then((full) => {
-          if (full) setUser(full);
-        });
-      }
-
-      if (sessionUser.accountStatus === "suspended") {
-        await supabase.auth.signOut();
-        setUser(null);
+        const needsKyc = !result.user.verified;
+        if (needsKyc) {
+          setPending({
+            name: result.user.name,
+            email: result.user.email,
+            phone: result.user.phone,
+            state: result.user.state,
+            role: result.user.role === "business" ? "business" : "individual",
+          });
+        }
+        return { user: result.user, needsKyc };
+      } catch (err) {
         return {
           user: null,
           needsKyc: false,
-          error: "This account is suspended. Contact the portal administrator.",
+          error: friendlyAuthError(err instanceof Error ? err.message : "Sign-in failed."),
         };
       }
-
-      const needsKyc = profile ? !profile.verified : false;
-      if (needsKyc) {
-        setPending({
-          name: sessionUser.name,
-          email: sessionUser.email,
-          phone: sessionUser.phone,
-          state: sessionUser.state,
-          role: sessionUser.role === "business" ? "business" : "individual",
-        });
-      }
-      return { user: sessionUser, needsKyc };
     },
-    [supabase, loadProfile],
+    [live],
   );
 
   const signOut = useCallback(async () => {
@@ -530,34 +300,52 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setPending(null);
     removeKey(SESSION_KEY);
     removeKey(PENDING_KEY);
-    if (supabase) await supabase.auth.signOut();
-  }, [supabase]);
+    clearToken();
+  }, []);
 
-  const updateUser = useCallback(
-    (patch: Partial<SessionUser>) => {
-      setUser((curr) => {
-        if (!curr) return curr;
-        const next = { ...curr, ...patch };
-        if (!supabase) {
-          writeJson(SESSION_KEY, next);
-          upsertUser(next);
-        }
-        return next;
-      });
+  const updateUser = useCallback((patch: Partial<SessionUser>) => {
+    setUser((curr) => {
+      if (!curr) return curr;
+      const next = { ...curr, ...patch };
+      writeJson(SESSION_KEY, next);
+      return next;
+    });
+  }, []);
 
-      if (supabase && user?.id) {
-        const row: Record<string, unknown> = {};
-        if (patch.name !== undefined) row.full_name = patch.name;
-        if (patch.phone !== undefined) row.phone = patch.phone;
-        if (patch.state !== undefined) row.state = patch.state;
-        if (patch.businessType !== undefined) row.business_type = patch.businessType;
-        if (patch.rcNumber !== undefined) row.cac_number = patch.rcNumber;
-        if (Object.keys(row).length) {
-          void supabase.from("profiles").update(row).eq("id", user.id);
-        }
+  const saveProfile = useCallback(
+    async (
+      patch: Partial<SessionUser> & { businessName?: string },
+    ): Promise<{ user: SessionUser | null; error?: string }> => {
+      if (!user) return { user: null, error: "Sign in first." };
+      const { businessName, ...sessionPatch } = patch;
+      if (!live || !getToken()) {
+        const next = { ...user, ...sessionPatch };
+        setUser(next);
+        writeJson(SESSION_KEY, next);
+        return { user: next };
+      }
+      try {
+        const body = await apiUpdateMe({
+          fullName: sessionPatch.name,
+          phone: sessionPatch.phone,
+          state: sessionPatch.state,
+          department: sessionPatch.department,
+          officeTitle: sessionPatch.officeTitle,
+          businessType: sessionPatch.businessType,
+          businessName,
+        });
+        const next = body.user ?? { ...user, ...sessionPatch };
+        setUser(next);
+        writeJson(SESSION_KEY, next);
+        return { user: next };
+      } catch (err) {
+        return {
+          user: null,
+          error: err instanceof Error ? err.message : "Could not save profile.",
+        };
       }
     },
-    [supabase, user],
+    [user, live],
   );
 
   const persistFeedback = useCallback((next: UserProjectFeedback[]) => {
@@ -585,23 +373,25 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString(),
       };
 
-      if (supabase && user.id) {
-        const { error } = await supabase.from("project_feedback").insert({
-          project_id: input.projectId,
-          user_id: user.id,
-          user_name: user.name,
-          user_email: user.email,
-          rating: input.rating,
-          topic: entry.topic,
-          body: entry.body,
-        });
-        if (error) return null;
+      if (live && user.id) {
+        try {
+          await apiFetch(`/api/projects/${input.projectId}/feedback`, {
+            method: "POST",
+            body: JSON.stringify({
+              rating: input.rating,
+              topic: entry.topic,
+              body: entry.body,
+            }),
+          });
+        } catch {
+          return null;
+        }
       }
 
       persistFeedback([entry, ...projectFeedback]);
       return entry;
     },
-    [user, supabase, projectFeedback, persistFeedback],
+    [user, live, projectFeedback, persistFeedback],
   );
 
   const addListing = useCallback(
@@ -648,6 +438,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       signIn,
       signOut,
       updateUser,
+      saveProfile,
       refresh,
       addListing,
       setListingStatus,
@@ -670,6 +461,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       signIn,
       signOut,
       updateUser,
+      saveProfile,
       refresh,
       addListing,
       setListingStatus,

@@ -59,7 +59,7 @@ export default function AdminSignInForm() {
             () =>
               reject(
                 new Error(
-                  "Sign-in timed out. Check your network, then confirm the admin user exists in Supabase Auth (or run node scripts/create-accounts.mjs).",
+                  "Sign-in timed out. Check your network, then confirm the API is running at NEXT_PUBLIC_API_URL.",
                 ),
               ),
             15000,
@@ -77,7 +77,7 @@ export default function AdminSignInForm() {
         return;
       }
       if (!result.user) {
-        setFormError("No account found for that email in Supabase Auth.");
+        setFormError("No account found for that email.");
         return;
       }
       if (result.user.role !== "admin") {
@@ -87,7 +87,7 @@ export default function AdminSignInForm() {
           return;
         }
         setFormError(
-          "Signed in, but profiles.role is not admin for this user. In Supabase, set role = admin on the profile row that matches this auth user id.",
+          "Signed in, but this account does not have the admin role.",
         );
         return;
       }

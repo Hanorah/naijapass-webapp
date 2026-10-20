@@ -63,7 +63,9 @@ export default function CivicChat() {
       const controller = new AbortController();
       const timeoutId = window.setTimeout(() => controller.abort(), 20_000);
 
-      const res = await fetch("/api/chat", {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+      const chatUrl = apiBase ? `${apiBase}/api/chat` : "/api/chat";
+      const res = await fetch(chatUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

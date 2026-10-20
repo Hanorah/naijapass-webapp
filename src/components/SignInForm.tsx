@@ -168,7 +168,7 @@ export default function SignInForm() {
 
           {!live ? (
             <p className="mt-5 text-xs leading-relaxed text-slate">
-              Offline demo mode — no Supabase keys detected. See .env.example
+              Offline demo mode — NEXT_PUBLIC_API_URL is not set. See .env.example
               to connect a live database.
             </p>
           ) : null}

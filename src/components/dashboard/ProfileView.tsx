@@ -19,6 +19,7 @@ import InitialsAvatar from "@/components/InitialsAvatar";
 import BusinessProfileEditor from "@/components/dashboard/BusinessProfileEditor";
 import { useDashboardSearch } from "@/components/dashboard/DashboardSearchContext";
 import { useSession } from "@/components/SessionProvider";
+import { apiFetch } from "@/lib/api/client";
 import { useMyBusiness } from "@/lib/db/myBusiness";
 import { useIncomingBids, useMyPublishedContracts } from "@/lib/db/procurement";
 import { useTenders } from "@/lib/db/tenders";
@@ -27,7 +28,7 @@ import { stateDisplayName } from "@/data/marketplace";
 import { directoryCategories } from "@/data/businesses";
 
 export default function ProfileView() {
-  const { user, updateUser, tenderBids } = useSession();
+  const { user, saveProfile, tenderBids } = useSession();
   const { selectedState } = useDashboardSearch();
   const displayName = user?.name ?? "Guest";
   const role = user?.role ?? "individual";
@@ -69,9 +70,13 @@ export default function ProfileView() {
     [tenderBids, user?.email],
   );
 
-  const onSave = (e: FormEvent) => {
+  const onSave = async (e: FormEvent) => {
     e.preventDefault();
-    updateUser({ name: name.trim() || displayName, phone, state });
+    const result = await saveProfile({ name: name.trim() || displayName, phone, state });
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
     toast.success("Profile updated.");
     setEditing(false);
   };
@@ -276,18 +281,28 @@ export default function ProfileView() {
                     <button
                       type="button"
                       onClick={async () => {
-                        const res = await fetch("/api/tenders/upsert", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ id: contract.id, status: "closed", title: contract.title, state: contract.state ?? selectedState }),
-                        });
-                        if (res.ok) {
+                        try {
+                          await apiFetch("/api/tenders", {
+                            method: "POST",
+                            body: JSON.stringify({
+                              id: contract.id,
+                              title: contract.title,
+                              reference: contract.reference ?? undefined,
+                              sector: contract.sector ?? undefined,
+                              state: contract.state ?? selectedState,
+                              value: contract.value ?? undefined,
+                              deadline: contract.deadline
+                                ? contract.deadline.slice(0, 19).replace("T", " ")
+                                : undefined,
+                              status: "closed",
+                              publisher_type: "business",
+                            }),
+                          });
                           toast.success("Contract closed.");
                           void reloadContracts();
                           void reloadIncoming();
-                        } else {
-                          const data = (await res.json()) as { error?: string };
-                          toast.error(data.error ?? "Could not close contract.");
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "Could not close contract.");
                         }
                       }}
                       className="shrink-0 rounded-xl border border-navy/10 px-3 py-2 text-xs font-semibold text-navy hover:bg-mist"
@@ -345,14 +360,15 @@ export default function ProfileView() {
                           <button
                             type="button"
                             onClick={async () => {
-                              const res = await fetch("/api/tenders/bids", {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ bidId: bid.id, status: "accepted" }),
-                              });
-                              const data = (await res.json()) as { error?: string };
-                              if (!res.ok) {
-                                toast.error(data.error ?? "Could not accept bid.");
+                              try {
+                                await apiFetch(`/api/tenders/${bid.tender_id}/bids/${bid.id}`, {
+                                  method: "PATCH",
+                                  body: JSON.stringify({ status: "accepted" }),
+                                });
+                              } catch (err) {
+                                toast.error(
+                                  err instanceof Error ? err.message : "Could not update bid.",
+                                );
                                 return;
                               }
                               toast.success("Bid accepted. Bidder will be notified if email is set up.");
@@ -365,14 +381,15 @@ export default function ProfileView() {
                           <button
                             type="button"
                             onClick={async () => {
-                              const res = await fetch("/api/tenders/bids", {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ bidId: bid.id, status: "rejected" }),
-                              });
-                              const data = (await res.json()) as { error?: string };
-                              if (!res.ok) {
-                                toast.error(data.error ?? "Could not reject bid.");
+                              try {
+                                await apiFetch(`/api/tenders/${bid.tender_id}/bids/${bid.id}`, {
+                                  method: "PATCH",
+                                  body: JSON.stringify({ status: "rejected" }),
+                                });
+                              } catch (err) {
+                                toast.error(
+                                  err instanceof Error ? err.message : "Could not update bid.",
+                                );
                                 return;
                               }
                               toast.success("Bid rejected.");

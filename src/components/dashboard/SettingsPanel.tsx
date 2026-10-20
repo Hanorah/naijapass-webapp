@@ -26,7 +26,7 @@ const defaultPrefs: Prefs = {
 
 export default function SettingsPanel() {
   const router = useRouter();
-  const { user, updateUser, signOut } = useSession();
+  const { user, saveProfile, signOut } = useSession();
   const [tab, setTab] = useState<"account" | "alerts" | "security">("account");
   const [name, setName] = useState(user?.name ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
@@ -44,9 +44,13 @@ export default function SettingsPanel() {
     if (stored) setPrefs({ ...defaultPrefs, ...stored });
   }, []);
 
-  const saveAccount = (e: FormEvent) => {
+  const saveAccount = async (e: FormEvent) => {
     e.preventDefault();
-    updateUser({ name: name.trim() || user?.name, phone, state });
+    const result = await saveProfile({ name: name.trim() || user?.name, phone, state });
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
     toast.success("Account settings saved.");
   };
 

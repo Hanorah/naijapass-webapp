@@ -1,12 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import {
-  STATE_CONTENT_COLUMNS,
-  type StateContentRow,
-  type StateContentType,
-} from "@/lib/db/types";
+import { apiFetch, isApiConfigured } from "@/lib/api/client";
+import { type StateContentRow, type StateContentType } from "@/lib/db/types";
 
 type Options = {
   state?: string;
@@ -16,36 +12,40 @@ type Options = {
 };
 
 async function fetchStateContent({ state, type, includeUnpublished }: Options) {
-  const supabase = createClient();
-  let query = supabase
-    .from("state_content")
-    .select(STATE_CONTENT_COLUMNS)
-    .order("created_at", { ascending: false });
-
-  if (state) query = query.eq("state", state);
-  if (type) query = query.eq("type", type);
-  if (!includeUnpublished) query = query.eq("published", true);
-
-  const { data, error } = await query;
-  return {
-    items: error ? [] : ((data ?? []) as StateContentRow[]),
-    error: error?.message ?? null,
-  };
+  try {
+    const params = new URLSearchParams();
+    if (state) params.set("state", state);
+    if (type) params.set("type", type);
+    const qs = params.toString();
+    const data = await apiFetch<{ items?: StateContentRow[]; content?: StateContentRow[] }>(
+      `/api/state-content${qs ? `?${qs}` : ""}`,
+      { anonymous: !includeUnpublished },
+    );
+    let items = data.items ?? data.content ?? [];
+    if (type) items = items.filter((item) => item.type === type);
+    if (!includeUnpublished) items = items.filter((item) => item.published !== false);
+    return { items, error: null as string | null };
+  } catch (err) {
+    return {
+      items: [] as StateContentRow[],
+      error: err instanceof Error ? err.message : "Could not load state content.",
+    };
+  }
 }
 
 /**
  * Notices, laws, MDA contacts and emergency numbers published by a state.
  * Returns an empty list rather than failing when nothing is published or the
- * project is not configured — callers fall back to bundled state profiles.
+ * API is not configured — callers fall back to bundled state profiles.
  */
 export function useStateContent(options: Options = {}) {
   const { state, type, includeUnpublished = false } = options;
   const [items, setItems] = useState<StateContentRow[]>([]);
-  const [loading, setLoading] = useState(isSupabaseConfigured());
+  const [loading, setLoading] = useState(isApiConfigured());
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    if (!isSupabaseConfigured()) return;
+    if (!isApiConfigured()) return;
     const result = await fetchStateContent({ state, type, includeUnpublished });
     setItems(result.items);
     setError(result.error);
@@ -53,7 +53,7 @@ export function useStateContent(options: Options = {}) {
   }, [state, type, includeUnpublished]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) return;
+    if (!isApiConfigured()) return;
 
     let active = true;
 

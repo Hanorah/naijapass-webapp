@@ -1,16 +1,25 @@
 import { getProjectById, projects as seedProjects } from "@/data/projects";
 import { normalizeDashboardState } from "@/lib/dashboardState";
-import { createClient } from "@/lib/supabase/server";
-import { isSupabaseConfigured } from "@/lib/supabase/client";
 import {
-  PROJECT_COLUMNS,
-  STATE_CONTENT_COLUMNS,
   rowToProject,
   type LiveProject,
   type ProjectRow,
   type ReviewStatus,
   type StateContentRow,
 } from "@/lib/db/types";
+
+/** Express base URL for server-side fetches (API_URL wins over the public one). */
+function serverApiUrl(): string {
+  return (process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
+}
+
+async function serverFetch<T>(path: string): Promise<T | null> {
+  const base = serverApiUrl();
+  if (!base) return null;
+  const res = await fetch(`${base}${path}`, { cache: "no-store" });
+  if (!res.ok) return null;
+  return (await res.json()) as T;
+}
 
 function seedAsLive(id: string): LiveProject | null {
   const seed = getProjectById(id);
@@ -48,22 +57,18 @@ function mapRow(row: ProjectRow): LiveProject {
 }
 
 /**
- * Server-side project lookup. Prefers the database so projects published by a
+ * Server-side project lookup. Prefers the Express API so projects published by a
  * state government after the last deploy resolve, and falls back to the
- * bundled seed so the page still renders without a configured project.
+ * bundled seed so the page still renders without a configured API.
  */
 export async function fetchProject(id: string): Promise<LiveProject | null> {
-  if (!isSupabaseConfigured()) return seedAsLive(id);
+  if (!serverApiUrl()) return seedAsLive(id);
 
   try {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("projects")
-      .select(PROJECT_COLUMNS)
-      .eq("id", id)
-      .maybeSingle();
-
-    return data ? mapRow(data as ProjectRow) : seedAsLive(id);
+    const data = await serverFetch<{ project?: ProjectRow }>(
+      `/api/projects/${encodeURIComponent(id)}`,
+    );
+    return data?.project ? mapRow(data.project) : seedAsLive(id);
   } catch {
     return seedAsLive(id);
   }
@@ -74,17 +79,14 @@ export async function fetchProjectsByState(state: string): Promise<LiveProject[]
   const canonical = normalizeDashboardState(state);
   const fallback = seedForState(canonical);
 
-  if (!isSupabaseConfigured()) return fallback;
+  if (!serverApiUrl()) return fallback;
 
   try {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("projects")
-      .select(PROJECT_COLUMNS)
-      .order("updated_at", { ascending: false })
-      .limit(5000);
+    const data = await serverFetch<{ projects?: ProjectRow[] }>(
+      `/api/projects?state=${encodeURIComponent(canonical)}`,
+    );
 
-    const rows = ((data ?? []) as ProjectRow[])
+    const rows = (data?.projects ?? [])
       .map(mapRow)
       .filter((project) => {
         if (!sameState(project.state, canonical)) return false;
@@ -101,18 +103,13 @@ export async function fetchProjectsByState(state: string): Promise<LiveProject[]
 
 /** Published State Hub content for a state. Empty when nothing is published. */
 export async function fetchStateContent(state: string): Promise<StateContentRow[]> {
-  if (!isSupabaseConfigured()) return [];
+  if (!serverApiUrl()) return [];
 
   try {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("state_content")
-      .select(STATE_CONTENT_COLUMNS)
-      .eq("state", state)
-      .eq("published", true)
-      .order("created_at", { ascending: false });
-
-    return (data ?? []) as StateContentRow[];
+    const data = await serverFetch<{ items?: StateContentRow[] }>(
+      `/api/state-content?state=${encodeURIComponent(state)}`,
+    );
+    return data?.items ?? [];
   } catch {
     return [];
   }

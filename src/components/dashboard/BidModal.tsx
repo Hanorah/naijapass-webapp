@@ -5,6 +5,10 @@ import toast from "react-hot-toast";
 import { Loader2, X } from "lucide-react";
 import type { TenderItem } from "@/lib/db/tenders";
 import type { TenderBid } from "@/lib/bids";
+import { apiFetch } from "@/lib/api/client";
+import { dbBidToTenderBid } from "@/lib/db/procurement";
+
+type BidRow = Parameters<typeof dbBidToTenderBid>[0];
 
 type Props = {
   tender: TenderItem;
@@ -49,56 +53,44 @@ export default function BidModal({
       updatedAt: now,
     };
 
-    const isUuid =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-        tender.id,
-      );
-
     try {
       if (!tender.live) {
         toast.error("This contract is reference-only. Bid on live contracts instead.");
         return;
       }
 
-      if (isUuid) {
-        const res = await fetch("/api/tenders/bids", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            tenderId: tender.id,
-            proposedAmount: amount.trim(),
-            notes: notes.trim(),
-            status: asDraft ? "draft" : "submitted",
-          }),
-        });
-        const data = (await res.json()) as {
-          bid?: TenderBid;
-          error?: string;
-          code?: string;
-        };
-        if (!res.ok) {
-          if (data.code === "NEEDS_MIGRATION") {
-            toast.error(
-              "Run supabase/business-procurement.sql in Supabase SQL editor, then try again.",
-            );
-            return;
-          }
-          toast.error(data.error ?? "Could not submit bid.");
-          return;
-        }
-        if (data.bid) await onSubmit(data.bid);
-        toast.success(
-          asDraft
-            ? `Draft saved for ${tender.ref}.`
-            : `Bid submitted for ${tender.ref}.`,
-        );
+      if (asDraft) {
+        // The API has no draft state: keep drafts on this device until submitted.
+        await onSubmit(localBid);
+        toast.success(`Draft saved for ${tender.ref}.`);
         onClose();
         return;
       }
 
-      toast.error("This contract is not in the live database.");
-    } catch {
-      toast.error("Could not reach the server.");
+      const amountValue = Number(amount.replace(/[^0-9.]/g, ""));
+      const data = await apiFetch<{ bid?: BidRow }>(`/api/tenders/${tender.id}/bids`, {
+        method: "POST",
+        body: JSON.stringify({
+          business_name: businessName,
+          contact_email: contactEmail,
+          proposed_amount: Number.isFinite(amountValue) && amountValue > 0 ? amountValue : undefined,
+          notes: notes.trim() || undefined,
+        }),
+      });
+      if (data.bid) {
+        await onSubmit(
+          dbBidToTenderBid({
+            ...data.bid,
+            tenders: { title: tender.title, reference: tender.ref },
+          }),
+        );
+      } else {
+        await onSubmit({ ...localBid, status: "submitted" });
+      }
+      toast.success(`Bid submitted for ${tender.ref}.`);
+      onClose();
+      return;    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not submit bid.");
     } finally {
       setSubmitting(false);
     }

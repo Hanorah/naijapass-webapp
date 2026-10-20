@@ -2,11 +2,9 @@
 
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { useAdminFeedback } from "@/lib/db/adminFeedback";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-
+import { setAdminFeedbackVisibility, useAdminFeedback } from "@/lib/db/adminFeedback";
 export default function AdminFeedbackPage() {
-  const { items, loading, reload } = useAdminFeedback();
+  const { items, loading, reload, applyVisibility } = useAdminFeedback();
   const [q, setQ] = useState("");
   const [kind, setKind] = useState<"all" | "feedback" | "field_report">("all");
 
@@ -25,22 +23,15 @@ export default function AdminFeedbackPage() {
   }, [items, q, kind]);
 
   const onToggle = async (id: string, visibility: "public" | "hidden") => {
-    if (!isSupabaseConfigured()) {
-      toast.error("Connect Supabase to moderate live feedback.");
-      return;
-    }
     const next = visibility === "public" ? "hidden" : "public";
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("project_feedback")
-      .update({ visibility: next })
-      .eq("id", id);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      await setAdminFeedbackVisibility(id, next);
+      applyVisibility(id, next);
+      toast.success(next === "hidden" ? "Feedback hidden." : "Feedback restored.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update feedback.");
+      await reload();
     }
-    toast.success(next === "hidden" ? "Hidden from public." : "Restored.");
-    await reload();
   };
 
   return (

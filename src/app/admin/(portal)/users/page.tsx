@@ -4,11 +4,9 @@ import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { roleLabels } from "@/lib/session";
 import { stateDisplayName } from "@/data/marketplace";
-import { useAdminProfiles } from "@/lib/db/adminProfiles";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-
+import { patchAdminUser, useAdminProfiles } from "@/lib/db/adminProfiles";
 export default function AdminUsersPage() {
-  const { profiles, source, reload, loading } = useAdminProfiles();
+  const { profiles, source, reload, loading, applyPatch } = useAdminProfiles();
   const [q, setQ] = useState("");
   const [role, setRole] = useState("All");
 
@@ -27,22 +25,20 @@ export default function AdminUsersPage() {
   }, [profiles, q, role]);
 
   const onToggle = async (id: string, current: string) => {
-    if (!isSupabaseConfigured() || source === "seed") {
-      toast.error("Connect Supabase to manage live accounts.");
+    if (source !== "database") {
+      toast.error("Connect the API to manage accounts.");
       return;
     }
-    const next = current === "active" || current === "verified" ? "suspended" : "active";
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("profiles")
-      .update({ account_status: next })
-      .eq("id", id);
-    if (error) {
-      toast.error(error.message);
-      return;
+    const next =
+      current === "active" || current === "verified" ? "suspended" : "active";
+    try {
+      await patchAdminUser(id, { account_status: next });
+      applyPatch(id, { account_status: next });
+      toast.success(next === "suspended" ? "Account suspended." : "Account reactivated.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update account.");
+      await reload();
     }
-    toast.success(next === "suspended" ? "Account suspended." : "Account reactivated.");
-    await reload();
   };
 
   return (

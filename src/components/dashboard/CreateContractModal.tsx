@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { Loader2, X } from "lucide-react";
 import { nigerianStates } from "@/data/states";
 import { stateDisplayName } from "@/data/marketplace";
+import { apiFetch } from "@/lib/api/client";
 
 const SECTORS = [
   "Infrastructure",
@@ -54,26 +55,22 @@ export default function CreateContractModal({
     }
     setSaving(true);
     try {
-      const res = await fetch("/api/tenders/upsert", {
+      const numericValue = Number(value.replace(/[^0-9.]/g, ""));
+      await apiFetch("/api/tenders", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title,
+          title: title.trim(),
           sector,
-          state,
-          lga,
-          value,
-          deadline,
-          description,
-          contactEmail: contact,
+          mda: companyName || undefined,
+          state: state || undefined,
+          lga: lga.trim() || undefined,
+          value: Number.isFinite(numericValue) && numericValue > 0 ? numericValue : undefined,
+          deadline: deadline || undefined,
+          description: description.trim() || undefined,
+          contact_email: contact.trim() || undefined,
+          publisher_type: "business",
         }),
-      });
-      const data = (await res.json()) as { error?: string };
-      if (!res.ok) {
-        toast.error(data.error ?? "Could not publish contract.");
-        return;
-      }
-      toast.success("Contract published — other businesses can bid now.");
+      });      toast.success("Contract published — other businesses can bid now.");
       try {
         window.dispatchEvent(new CustomEvent("naijapass:tenders-changed"));
       } catch {
@@ -81,8 +78,8 @@ export default function CreateContractModal({
       }
       onCreated();
       onClose();
-    } catch {
-      toast.error("Could not reach the server.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not publish contract.");
     } finally {
       setSaving(false);
     }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Eye, EyeOff, Star } from "lucide-react";
 import { useSession } from "@/components/SessionProvider";
@@ -14,28 +14,30 @@ import {
   StatCard,
 } from "@/components/govt/ui";
 import { useProjects } from "@/lib/db/projects";
-import { FEEDBACK_COLUMNS, type FeedbackRow } from "@/lib/db/types";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { type FeedbackRow } from "@/lib/db/types";
+import { apiFetch, isApiConfigured } from "@/lib/api/client";
 import { projectDetailPath } from "@/data/projects";
 
+/** Keeps the number of per-project requests bounded. */
+const MAX_PROJECTS_QUERIED = 30;
+
 async function fetchFeedback(projectIds: string[]): Promise<FeedbackRow[]> {
-  if (!isSupabaseConfigured() || !projectIds.length) return [];
+  if (!isApiConfigured() || !projectIds.length) return [];
 
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("project_feedback")
-    .select(FEEDBACK_COLUMNS)
-    .in("project_id", projectIds)
-    .order("created_at", { ascending: false })
-    .limit(300);
+  const results = await Promise.allSettled(
+    projectIds.slice(0, MAX_PROJECTS_QUERIED).map((id) =>
+      apiFetch<{ feedback?: FeedbackRow[] }>(
+        `/api/projects/${encodeURIComponent(id)}/feedback`,
+        { anonymous: true },
+      ),
+    ),
+  );
 
-  if (error) {
-    toast.error(error.message);
-    return [];
-  }
-  return (data ?? []) as FeedbackRow[];
+  return results
+    .flatMap((result) => (result.status === "fulfilled" ? (result.value.feedback ?? []) : []))
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .slice(0, 300);
 }
-
 export default function GovtFeedbackBoard() {
   const { user, live } = useSession();
   const state = user?.govtState ?? user?.state ?? "";
@@ -51,12 +53,6 @@ export default function GovtFeedbackBoard() {
   }, [projects]);
 
   const projectIds = useMemo(() => projects.map((p) => p.id), [projects]);
-
-  const load = useCallback(async () => {
-    const next = await fetchFeedback(projectIds);
-    setRows(next);
-    setLoading(false);
-  }, [projectIds]);
 
   useEffect(() => {
     let active = true;
@@ -82,20 +78,20 @@ export default function GovtFeedbackBoard() {
   }, [rows]);
 
   const onToggleVisibility = async (row: FeedbackRow) => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("project_feedback")
-      .update({ visibility: row.visibility === "public" ? "hidden" : "public" })
-      .eq("id", row.id);
-
-    if (error) {
-      toast.error(error.message);
-      return;
+    const visibility = row.visibility === "public" ? "hidden" : "public";
+    try {
+      await apiFetch(`/api/projects/feedback/${encodeURIComponent(row.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ visibility }),
+      });
+      setRows((curr) =>
+        curr.map((item) => (item.id === row.id ? { ...item, visibility } : item)),
+      );
+      toast.success(visibility === "hidden" ? "Feedback hidden." : "Feedback restored.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update feedback.");
     }
-    toast.success(row.visibility === "public" ? "Hidden from the public page." : "Restored.");
-    await load();
   };
-
   return (
     <div className="space-y-6">
       {!live ? <OfflineNotice /> : null}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { apiFetch, getToken, isApiConfigured } from "@/lib/api/client";
 import type { TenderBid } from "@/lib/bids";
 
 export type PublishedContract = {
@@ -60,17 +61,43 @@ export function dbBidToTenderBid(row: {
   };
 }
 
+/** Reads the signed-in user's id from the JWT held by the API client. */
+function currentUserId(): string | null {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+    const json = JSON.parse(
+      atob(payload.replace(/-/g, "+").replace(/_/g, "/")),
+    ) as { sub?: string; id?: string };
+    return json.sub ?? json.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+type ApiTender = PublishedContract & { submitted_by?: string | null };
+
+async function fetchMyContracts(): Promise<PublishedContract[]> {
+  const userId = currentUserId();
+  if (!userId) return [];
+  const data = await apiFetch<{ tenders?: ApiTender[] }>("/api/tenders?status=open");
+  return (data.tenders ?? []).filter((tender) => tender.submitted_by === userId);
+}
+
 export function useMyPublishedContracts(enabled: boolean) {
   const [contracts, setContracts] = useState<PublishedContract[]>([]);
   const [loading, setLoading] = useState(enabled);
 
   const reload = useCallback(async () => {
-    if (!enabled) return;
+    if (!enabled || !isApiConfigured()) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const res = await fetch("/api/tenders/upsert");
-      const data = (await res.json()) as { tenders?: PublishedContract[] };
-      setContracts(data.tenders ?? []);
+      setContracts(await fetchMyContracts());
     } catch {
       setContracts([]);
     } finally {
@@ -90,12 +117,31 @@ export function useIncomingBids(enabled: boolean) {
   const [loading, setLoading] = useState(enabled);
 
   const reload = useCallback(async () => {
-    if (!enabled) return;
+    if (!enabled || !isApiConfigured()) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const res = await fetch("/api/tenders/bids?view=incoming");
-      const data = (await res.json()) as { bids?: IncomingBid[] };
-      setBids(data.bids ?? []);
+      const mine = await fetchMyContracts();
+      const lists = await Promise.all(
+        mine.map(async (tender) => {
+          const data = await apiFetch<{ bids?: Omit<IncomingBid, "tenders">[] }>(
+            `/api/tenders/${tender.id}/bids`,
+          );
+          return (data.bids ?? []).map(
+            (bid): IncomingBid => ({
+              ...bid,
+              tenders: {
+                title: tender.title,
+                reference: tender.reference,
+                status: tender.status,
+              },
+            }),
+          );
+        }),
+      );
+      setBids(lists.flat());
     } catch {
       setBids([]);
     } finally {

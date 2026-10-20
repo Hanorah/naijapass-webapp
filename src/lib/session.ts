@@ -11,7 +11,7 @@ export type PendingRegistration = {
 };
 
 export type SessionUser = {
-  /** Supabase auth user id. Absent only in offline demo mode. */
+  /** Auth user id from the Express API. */
   id?: string;
   name: string;
   email: string;
@@ -28,7 +28,7 @@ export type SessionUser = {
   accountStatus?: "pending" | "active" | "suspended" | "rejected";
 };
 
-/** A row of public.profiles, as returned by Supabase. */
+/** A row of profiles, as returned by the API. */
 export type ProfileRow = {
   id: string;
   email: string | null;
@@ -148,10 +148,7 @@ export function removeKey(key: string) {
   window.localStorage.removeItem(key);
 }
 
-/**
- * Offline demo accounts. Only reachable when Supabase is not configured, so
- * the UI stays explorable before anyone has created a database.
- */
+/** Demo accounts used only when the API is unreachable (dev fallback). */
 export function demoUserForEmail(email: string): SessionUser | null {
   const normalized = email.trim().toLowerCase();
   if (normalized === "admin@naijapass.ng") {

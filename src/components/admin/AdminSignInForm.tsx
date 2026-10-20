@@ -70,7 +70,7 @@ export default function AdminSignInForm() {
       if (result.error) {
         const message =
           result.error === "Email or password is incorrect."
-            ? "Email or password is incorrect. Use admin@naijapass.ng / Admin@NaijaPass2026, or run node scripts/create-accounts.mjs to reset."
+            ? "Email or password is incorrect. Use admin@naijapass.ng / AdminPass123! (run npm run db:seed in naijapass-api to reset)."
             : result.error;
         setFormError(message);
         toast.error(message);

@@ -28,16 +28,20 @@ import {
 } from "@/data/marketplace";
 import { mergeBids, readBids, upsertBid, writeBids, type TenderBid } from "@/lib/bids";
 import {
+  apiCreateListing,
   apiFetch,
+  apiListListings,
   apiLogin,
   apiMe,
   apiRegister,
+  apiSetListingStatus,
   apiUpdateMe,
   clearToken,
   getToken,
   isApiConfigured,
   setToken,
 } from "@/lib/api/client";
+import { apiListingToMarketplace, marketplaceToCreatePayload } from "@/lib/listings";
 
 export type AuthResult = {
   user: SessionUser | null;
@@ -64,8 +68,11 @@ type SessionContextValue = {
     patch: Partial<SessionUser> & { businessName?: string },
   ) => Promise<{ user: SessionUser | null; error?: string }>;
   refresh: () => Promise<void>;
-  addListing: (listing: MarketplaceListing) => void;
-  setListingStatus: (id: string, status: MarketplaceListing["status"]) => void;
+  addListing: (listing: MarketplaceListing) => Promise<void>;
+  setListingStatus: (
+    id: string,
+    status: MarketplaceListing["status"],
+  ) => Promise<void>;
   tenderBids: TenderBid[];
   submitBid: (bid: TenderBid) => TenderBid;
   bidForTender: (tenderRef: string, tenderId?: string) => TenderBid | undefined;
@@ -102,19 +109,44 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setProjectFeedback(readJson<UserProjectFeedback[]>(PROJECT_FEEDBACK_KEY) ?? []);
     setTenderBids(readBids());
-    const stored = readJson<MarketplaceListing[]>(LISTINGS_KEY);
-    if (stored?.length) {
-      const byId = new Map(stored.map((item) => [item.id, item]));
-      for (const seed of seedMarketplaceListings) {
-        if (!byId.has(seed.id)) byId.set(seed.id, seed);
+
+    let active = true;
+    void (async () => {
+      if (live) {
+        try {
+          const body = await apiListListings();
+          if (!active) return;
+          const fromApi = (body.listings ?? []).map(apiListingToMarketplace);
+          const byId = new Map(seedMarketplaceListings.map((item) => [item.id, item]));
+          for (const item of fromApi) byId.set(item.id, item);
+          const merged = Array.from(byId.values());
+          setListings(merged);
+          writeJson(LISTINGS_KEY, merged);
+          return;
+        } catch {
+          /* fall through to local seeds */
+        }
       }
-      const merged = Array.from(byId.values());
-      setListings(merged);
-      writeJson(LISTINGS_KEY, merged);
-    } else {
-      setListings(seedMarketplaceListings);
-    }
-  }, []);
+
+      const stored = readJson<MarketplaceListing[]>(LISTINGS_KEY);
+      if (stored?.length) {
+        const byId = new Map(stored.map((item) => [item.id, item]));
+        for (const seed of seedMarketplaceListings) {
+          if (!byId.has(seed.id)) byId.set(seed.id, seed);
+        }
+        const merged = Array.from(byId.values());
+        if (!active) return;
+        setListings(merged);
+        writeJson(LISTINGS_KEY, merged);
+      } else if (active) {
+        setListings(seedMarketplaceListings);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [live]);
 
   useEffect(() => {
     let active = true;
@@ -333,6 +365,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           officeTitle: sessionPatch.officeTitle,
           businessType: sessionPatch.businessType,
           businessName,
+          avatarUrl: sessionPatch.avatarUrl,
         });
         const next = body.user ?? { ...user, ...sessionPatch };
         setUser(next);
@@ -395,19 +428,36 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   const addListing = useCallback(
-    (listing: MarketplaceListing) => {
+    async (listing: MarketplaceListing) => {
+      if (live && getToken()) {
+        try {
+          const body = await apiCreateListing(marketplaceToCreatePayload(listing));
+          const saved = apiListingToMarketplace(body.listing);
+          persistListings([saved, ...listings.filter((item) => item.id !== saved.id)]);
+          return;
+        } catch {
+          /* fall through to local persist */
+        }
+      }
       persistListings([listing, ...listings.filter((item) => item.id !== listing.id)]);
     },
-    [listings, persistListings],
+    [listings, persistListings, live],
   );
 
   const setListingStatus = useCallback(
-    (id: string, status: MarketplaceListing["status"]) => {
+    async (id: string, status: MarketplaceListing["status"]) => {
+      if (live && getToken()) {
+        try {
+          await apiSetListingStatus(id, status);
+        } catch {
+          /* still update local view */
+        }
+      }
       persistListings(
         listings.map((item) => (item.id === id ? { ...item, status } : item)),
       );
     },
-    [listings, persistListings],
+    [listings, persistListings, live],
   );
 
   const submitBid = useCallback((bid: TenderBid) => {

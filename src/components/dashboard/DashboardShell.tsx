@@ -280,8 +280,13 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
             href="/dashboard/profile"
             className="flex items-center gap-3 rounded-2xl bg-white/6 px-3 py-2.5 ring-1 ring-white/8 transition hover:bg-white/8"
           >
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-forest text-xs font-bold">
-              {mark}
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-forest text-xs font-bold">
+              {user?.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                mark
+              )}
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{displayName}</p>
@@ -378,8 +383,13 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
                 }}
                 className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2 hover:bg-white"
               >
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-forest text-xs font-bold text-white">
-                  {mark}
+                <span className="inline-flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-forest text-xs font-bold text-white">
+                  {user?.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    mark
+                  )}
                 </span>
                 <span className="hidden text-sm font-medium md:inline">
                   {displayName.split(" ")[0]}

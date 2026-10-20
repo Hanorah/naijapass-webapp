@@ -179,8 +179,10 @@ export default function GovtSignInForm() {
           </form>
 
           <p className="mt-7 text-xs leading-relaxed text-white/40">
-            State accounts are issued by the portal administrator — there is no
-            self-registration here. Lost your credentials? Contact{" "}
+            Demo seeds: lagos@govt.naijapass.ng or fct@govt.naijapass.ng with
+            password GovtPass123! (npm run db:seed in naijapass-api). Other state
+            accounts are issued by the portal administrator. Lost credentials?
+            Contact{" "}
             <a
               href="mailto:admin@naijapass.ng"
               className="font-semibold text-emerald-300"

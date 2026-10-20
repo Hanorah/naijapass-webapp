@@ -137,6 +137,7 @@ export type UpdateMeInput = {
   officeTitle?: string;
   businessType?: string;
   businessName?: string;
+  avatarUrl?: string;
 };
 
 /** PATCH /api/auth/me. Returns the refreshed session user when the API sends one. */
@@ -151,5 +152,74 @@ export async function apiChangePassword(currentPassword: string, newPassword: st
   return apiFetch<{ ok?: boolean }>("/api/auth/change-password", {
     method: "POST",
     body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
+export async function apiForgotPassword(email: string) {
+  return apiFetch<{ ok?: boolean }>("/api/auth/forgot-password", {
+    method: "POST",
+    anonymous: true,
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function apiResetPassword(token: string, newPassword: string) {
+  return apiFetch<{ ok?: boolean }>("/api/auth/reset-password", {
+    method: "POST",
+    anonymous: true,
+    body: JSON.stringify({ token, newPassword }),
+  });
+}
+
+export type ApiListing = {
+  id: string;
+  seller_id: string | null;
+  business_id: string | null;
+  title: string;
+  category: string;
+  state: string;
+  lga: string | null;
+  price: number | null;
+  currency: string;
+  description: string | null;
+  status: string;
+  image_url: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export async function apiListListings(params?: { state?: string; all?: boolean }) {
+  const q = new URLSearchParams();
+  if (params?.state) q.set("state", params.state);
+  if (params?.all) q.set("all", "1");
+  const suffix = q.toString() ? `?${q}` : "";
+  return apiFetch<{ listings: ApiListing[] }>(`/api/listings${suffix}`, {
+    anonymous: true,
+  });
+}
+
+export async function apiCreateListing(input: {
+  title: string;
+  category: string;
+  state: string;
+  lga?: string;
+  price?: number;
+  description?: string;
+  imageUrl?: string;
+  status?: "pending" | "live" | "hidden";
+}) {
+  return apiFetch<{ listing: ApiListing }>("/api/listings", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function apiSetListingStatus(
+  id: string,
+  status: "pending" | "live" | "hidden" | "sold" | "expired",
+) {
+  return apiFetch<{ listing: ApiListing }>(`/api/listings/${encodeURIComponent(id)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
   });
 }

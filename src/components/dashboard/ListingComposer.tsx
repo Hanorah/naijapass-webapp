@@ -85,7 +85,7 @@ export default function ListingComposer({
       integrated: true,
       verified: true,
       ownerEmail,
-      status: "live",
+      status: "pending",
       description: description.trim() || undefined,
       phone: phone.trim() || undefined,
       websiteMode,

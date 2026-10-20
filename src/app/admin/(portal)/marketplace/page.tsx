@@ -69,7 +69,7 @@ export default function AdminMarketplacePage() {
       await reload();
       return;
     }
-    setListingStatus(id, status);
+    await setListingStatus(id, status);
     toast.success(status === "live" ? "Published." : "Hidden.");
   };
 

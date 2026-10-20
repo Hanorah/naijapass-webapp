@@ -2,22 +2,26 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo } from "react";
-import { Gavel, MapPin, Search, Star } from "lucide-react";
+import { useMemo, useState } from "react";
+import toast from "react-hot-toast";
+import { Gavel, MapPin, Plus, Search, Star } from "lucide-react";
 import InitialsAvatar from "@/components/InitialsAvatar";
+import ListingComposer from "@/components/dashboard/ListingComposer";
 import { useDashboardSearch } from "@/components/dashboard/DashboardSearchContext";
 import { useSession } from "@/components/SessionProvider";
 import { useBusinesses } from "@/lib/db/businesses";
 import { directoryCategories } from "@/data/businesses";
-import { stateDisplayName } from "@/data/marketplace";
+import { stateDisplayName, type MarketplaceListing } from "@/data/marketplace";
+import { uploadBusinessImage } from "@/lib/storage/businessImage";
 
 export default function MarketplaceHub() {
   const { search, setSearch, selectedState } = useDashboardSearch();
-  const { user } = useSession();
+  const { user, listings, addListing } = useSession();
   const { businesses, loading } = useBusinesses(selectedState);
+  const [composerOpen, setComposerOpen] = useState(false);
   const isBusiness = user?.role === "business" || user?.role === "admin";
 
-  const filtered = useMemo(() => {
+  const filteredBusinesses = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return businesses;
     return businesses.filter((biz) => {
@@ -26,7 +30,40 @@ export default function MarketplaceHub() {
     });
   }, [businesses, search]);
 
+  const filteredListings = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return listings.filter((item) => {
+      if (item.status !== "live") return false;
+      if (item.state !== selectedState) return false;
+      if (!q) return true;
+      return `${item.name} ${item.subcategory} ${item.description ?? ""}`
+        .toLowerCase()
+        .includes(q);
+    });
+  }, [listings, search, selectedState]);
+
   const stateLabel = stateDisplayName(selectedState);
+
+  const onCreate = async (listing: MarketplaceListing) => {
+    let image = listing.image;
+    if (image?.startsWith("data:") && user) {
+      try {
+        const blob = await (await fetch(image)).blob();
+        const file = new File([blob], "listing.jpg", { type: blob.type || "image/jpeg" });
+        const uploaded = await uploadBusinessImage(user.id ?? user.email, file);
+        if (uploaded.url) image = uploaded.url;
+      } catch {
+        /* keep data URL fallback for offline */
+      }
+    }
+    await addListing({ ...listing, image });
+    setComposerOpen(false);
+    toast.success(
+      listing.status === "live"
+        ? "Listing published."
+        : "Listing submitted for review.",
+    );
+  };
 
   return (
     <div>
@@ -37,15 +74,23 @@ export default function MarketplaceHub() {
             Verified businesses in {stateLabel}
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-slate md:text-base">
-            Browse registered companies from the verified directory.
+            Browse registered companies and live marketplace listings.
             {isBusiness
-              ? " Manage your company profile in the business workspace, then bid on contracts."
+              ? " Publish a listing or manage your company profile, then bid on contracts."
               : " Save suppliers and explore contractors in your state."}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {isBusiness && (
             <>
+              <button
+                type="button"
+                onClick={() => setComposerOpen(true)}
+                className="inline-flex items-center gap-2 rounded-xl bg-forest px-4 py-2.5 text-sm font-semibold text-white hover:bg-forest-hover"
+              >
+                <Plus className="h-4 w-4" />
+                Publish listing
+              </button>
               <Link
                 href="/dashboard/profile"
                 className="inline-flex items-center gap-2 rounded-xl border border-navy/15 bg-white px-4 py-2.5 text-sm font-semibold text-navy hover:bg-mist"
@@ -54,7 +99,7 @@ export default function MarketplaceHub() {
               </Link>
               <Link
                 href="/dashboard/procurement"
-                className="inline-flex items-center gap-2 rounded-xl bg-forest px-4 py-2.5 text-sm font-semibold text-white hover:bg-forest-hover"
+                className="inline-flex items-center gap-2 rounded-xl border border-navy/15 bg-white px-4 py-2.5 text-sm font-semibold text-navy hover:bg-mist"
               >
                 <Gavel className="h-4 w-4" />
                 Bid on contracts
@@ -69,27 +114,65 @@ export default function MarketplaceHub() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search businesses…"
+          placeholder="Search businesses and listings…"
           className="w-full rounded-xl border border-navy/10 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-forest/20"
         />
       </label>
 
       <p className="mb-4 text-sm font-semibold text-navy">
-        {loading ? "Loading…" : `${filtered.length} businesses in ${stateLabel}`}
+        {loading
+          ? "Loading…"
+          : `${filteredBusinesses.length} businesses · ${filteredListings.length} listings in ${stateLabel}`}
       </p>
 
       {loading ? (
         <p className="rounded-2xl border border-dashed border-navy/15 bg-white p-10 text-center text-slate">
           Loading businesses…
         </p>
-      ) : filtered.length === 0 ? (
+      ) : filteredBusinesses.length === 0 && filteredListings.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-navy/15 bg-white p-10 text-center text-slate">
-          No verified businesses in {stateLabel} yet.
-          {isBusiness ? " Set up your company profile to be the first." : ""}
+          No verified businesses or listings in {stateLabel} yet.
+          {isBusiness ? " Publish a listing or set up your company profile." : ""}
         </p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((biz) => {
+          {filteredListings.map((item) => (
+            <article
+              key={`listing-${item.id}`}
+              className="overflow-hidden rounded-2xl border border-navy/8 bg-white shadow-sm"
+            >
+              <div className="relative h-36 bg-mist">
+                {item.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.image} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="flex h-full items-center justify-center">
+                    <InitialsAvatar name={item.name} size={64} rounded="2xl" />
+                  </span>
+                )}
+                <span className="absolute left-3 top-3 rounded-md bg-navy px-2 py-0.5 text-[10px] font-bold uppercase text-white">
+                  Listing
+                </span>
+              </div>
+              <div className="p-4">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-slate">
+                  {item.category} · {item.subcategory}
+                </p>
+                <h2 className="mt-1 font-display text-base font-bold leading-snug text-navy">
+                  {item.name}
+                </h2>
+                <p className="mt-2 line-clamp-2 text-sm text-slate">
+                  {item.description || "Marketplace listing"}
+                </p>
+                <p className="mt-2 inline-flex items-center gap-1 text-sm text-slate">
+                  <MapPin className="h-3.5 w-3.5 text-forest" />
+                  {item.lga || stateLabel}
+                </p>
+              </div>
+            </article>
+          ))}
+
+          {filteredBusinesses.map((biz) => {
             const categoryLabel =
               directoryCategories.find((c) => c.id === biz.category)?.label ??
               biz.category;
@@ -150,6 +233,18 @@ export default function MarketplaceHub() {
             );
           })}
         </div>
+      )}
+
+      {composerOpen && (
+        <ListingComposer
+          defaultState={selectedState}
+          defaultName={user?.name}
+          ownerEmail={user?.email}
+          onClose={() => setComposerOpen(false)}
+          onCreate={(listing) => {
+            void onCreate(listing);
+          }}
+        />
       )}
     </div>
   );

@@ -19,6 +19,7 @@ export type SessionUser = {
   state: string;
   role: Role;
   verified: boolean;
+  avatarUrl?: string;
   businessType?: string;
   rcNumber?: string;
   /** For role === "govt": the single state this account may publish for. */
@@ -38,6 +39,7 @@ export type ProfileRow = {
   account_status: string;
   state: string | null;
   lga: string | null;
+  avatar_url: string | null;
   kyc_status: string;
   business_name: string | null;
   business_type: string | null;
@@ -48,7 +50,7 @@ export type ProfileRow = {
 };
 
 export const PROFILE_COLUMNS =
-  "id, email, full_name, phone, role, account_status, state, lga, kyc_status, business_name, business_type, cac_number, govt_state, department, office_title";
+  "id, email, full_name, phone, role, account_status, state, lga, avatar_url, kyc_status, business_name, business_type, cac_number, govt_state, department, office_title";
 
 function toRole(value: string): Role {
   return (ROLES as readonly string[]).includes(value) ? (value as Role) : "individual";
@@ -69,6 +71,7 @@ export function profileToSessionUser(profile: ProfileRow): SessionUser {
       role === "govt" || role === "admin"
         ? profile.account_status === "active"
         : profile.kyc_status === "verified",
+    avatarUrl: profile.avatar_url ?? undefined,
     businessType: profile.business_type ?? undefined,
     rcNumber: profile.cac_number ?? undefined,
     govtState: profile.govt_state ?? undefined,

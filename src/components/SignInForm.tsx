@@ -8,6 +8,7 @@ import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import NaijaPassMark from "@/components/NaijaPassMark";
 import NigeriaMap from "@/components/NigeriaMap";
 import { useSession } from "@/components/SessionProvider";
+import { apiForgotPassword, isApiConfigured } from "@/lib/api/client";
 import {
   homeForRole,
   kycUrl,
@@ -122,9 +123,24 @@ export default function SignInForm() {
                 Password
                 <button
                   type="button"
-                  onClick={() =>
-                    toast.success("Password reset link sent if the account exists.")
-                  }
+                  onClick={async () => {
+                    if (!email.trim()) {
+                      toast.error("Enter your email first.");
+                      return;
+                    }
+                    if (!isApiConfigured()) {
+                      toast.error("Connect the API to reset your password.");
+                      return;
+                    }
+                    try {
+                      await apiForgotPassword(email.trim());
+                      toast.success("Password reset link sent if the account exists.");
+                    } catch (err) {
+                      toast.error(
+                        err instanceof Error ? err.message : "Could not send reset email.",
+                      );
+                    }
+                  }}
                   className="font-semibold text-forest"
                 >
                   Forgot password?
